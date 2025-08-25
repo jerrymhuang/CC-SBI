@@ -38,7 +38,7 @@ def simulate_with_tqdm(workflow, n, desc="Simulating"):
     wrapped = TqdmSimulator(workflow.simulator, total=n, desc=desc)
     try:
         workflow.simulator = wrapped
-        return workflow.simulate(n)            # BayesFlow passes batch_shape=n
+        return workflow.simulate(n)  # BayesFlow passes batch_shape=n
     finally:
         wrapped.close()
-        workflow.simulator = wrapped.base      # restore
+        workflow.simulator = wrapped.base  # restore
