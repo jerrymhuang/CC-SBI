@@ -198,7 +198,7 @@ class MoleculeSimulator:
         if batch_size < 1:
             raise ValueError("Batch size must be a positive integer")
 
-        iterator = range(batch_size)
+        iterator = range(batch_size - 1)
         if show_progress:
             iterator = tqdm(iterator, desc="Sampling CCSD dataset", unit="sim")
 

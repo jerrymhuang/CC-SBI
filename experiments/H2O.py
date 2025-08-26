@@ -4,13 +4,15 @@ import sys
 os.environ["KERAS_BACKEND"] = "jax"
 sys.path.append("src")
 
+import keras
 import logging
 import argparse
-from pathlib import Path
 import bayesflow as bf
-import keras
-from simulations.molecules import MoleculeSimulator
+import matplotlib.pyplot as plt
+
+from pathlib import Path
 from simulations.benchmarks.water import water
+from simulations.molecules import MoleculeSimulator
 from utils.dataset_utils import generate_dataset, verify_dataset, load_npz_dict
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -24,17 +26,19 @@ def parse_args():
         Parsed command-line arguments with training parameters.
     """
     parser = argparse.ArgumentParser(description="H2O training pipeline for BayesFlow")
-    parser.add_argument("--train-samples", type=int, default=10, help="Number of training samples")
-    parser.add_argument("--val-samples", type=int, default=2, help="Number of validation samples")
+    parser.add_argument("--train-samples", type=int, default=5000, help="Number of training samples")
+    parser.add_argument("--val-samples", type=int, default=300, help="Number of validation samples")
     parser.add_argument("--num-molecules", type=int, default=2, help="Number of molecules per simulation")
     parser.add_argument("--out-dir", type=str, default="data", help="Output directory for datasets")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Checkpoint directory for model")
-    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=2, help="Batch size for training")
+    parser.add_argument("--figures-dir", type=str, default="figures", help="Output directory for diagnostic figures")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
+    parser.add_argument("--batch-size", type=int, default=32, help="Batch size for training")
     return parser.parse_args()
 
 def main():
-    """H2O training pipeline for BayesFlow.
+    """
+    H2O training pipeline for BayesFlow.
 
     Generates or loads training and validation datasets for water molecule chains,
     trains a DiffusionModel using BayesFlow, and saves the trained model.
@@ -44,8 +48,10 @@ def main():
     # Ensure output directories exist
     out_dir = Path(args.out_dir)
     checkpoint_dir = Path(args.checkpoint_dir)
+    figures_dir = Path(args.figures_dir)
     out_dir.mkdir(exist_ok=True)
     checkpoint_dir.mkdir(exist_ok=True)
+    figures_dir.mkdir(exist_ok=True)
 
     # Define simulator
     simulator = MoleculeSimulator(
@@ -56,6 +62,7 @@ def main():
         coord_scale=0.1
     )
 
+    # Define adapter
     adapter = (
         bf.adapters.Adapter()
         .convert_dtype("float64", "float32")
@@ -66,7 +73,10 @@ def main():
         .concatenate(["t1"], into="inference_variables")
     )
 
+    # Define networks
     dm = bf.networks.DiffusionModel()
+
+    # Set up workflow
     dm_workflow = bf.workflows.BasicWorkflow(
         simulator=simulator,
         adapter=adapter,
@@ -74,7 +84,7 @@ def main():
         checkpoint_filepath=checkpoint_dir / "h2o_test_diffusion.ckpt",
     )
 
-    # Generate and verify datasets
+    # Generate and verify datasets, train, and visualize diagnostics
     try:
         train_set = generate_dataset(
             simulator, args.train_samples, args.num_molecules, out_dir / "h2o_train.npz"
@@ -105,6 +115,23 @@ def main():
         model_path = checkpoint_dir / "h2o_test_diffusion.ckpt" / "model.keras"
         reloaded_model = keras.saving.load_model(model_path)
         logging.info(f"Model reloaded successfully from {model_path}")
+
+        # Generate and save diagnostics
+        logging.info("Generating diagnostics...")
+        fig_size = (18, 21)
+        figures = dm_workflow.plot_default_diagnostics(
+            test_data=val_set,
+            loss_kwargs={"figsize": (15, 3), "label_fontsize": 12},
+            recovery_kwargs={"figsize": fig_size, "label_fontsize": 12},
+            calibration_ecdf_kwargs={"figsize": fig_size, "legend_fontsize": 8, "difference": True,
+                                     "label_fontsize": 12},
+            z_score_contraction_kwargs={"figsize": fig_size, "label_fontsize": 12}
+        )
+        for plot_name, fig in figures.items():
+            fig_path = figures_dir / f"h20_{plot_name}.png"
+            fig.savefig(fig_path, dpi=300, bbox_inches="tight")
+            plt.close(fig)
+            logging.info(f"Saved diagnostic plot to {fig_path}")
 
     except Exception as e:
         logging.error(f"Pipeline failed: {e}")

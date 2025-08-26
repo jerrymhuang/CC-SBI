@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from simulations.molecules import MoleculeSimulator
 
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 def save_npz_dict(d: Dict[str, np.ndarray], path: Union[str, Path]) -> None:
     """Save a dictionary to a compressed .npz file.
 
@@ -62,6 +64,8 @@ def generate_dataset(
     ----------
     simulator : MoleculeSimulator
         Simulator for generating molecular data.
+    adapter : bayesflow.adapters.Adapter
+        Adapter for transforming simulation outputs (unused in this version).
     batch_size : int
         Number of samples to generate or load.
     num_molecules : int
@@ -89,7 +93,7 @@ def generate_dataset(
             if data["nuc_potential"].shape[0] == batch_size:
                 logging.info(f"Loaded dataset with {batch_size} samples")
                 logging.info(f"Dataset keys: {list(data.keys())}")
-                logging.info(f"Dataset shapes: {[data[k].shape for k in data.keys()]}")
+                logging.info(f"Dataset shapes: {[(k, data[k].shape) for k in data.keys()]}")
                 return data
             else:
                 logging.warning(f"Existing dataset has {data['nuc_potential'].shape[0]} samples, expected {batch_size}. Regenerating...")
@@ -100,7 +104,7 @@ def generate_dataset(
     try:
         data = simulator.sample(batch_size=batch_size, num_molecules=num_molecules, show_progress=True)
         logging.info(f"Dataset keys: {list(data.keys())}")
-        logging.info(f"Dataset shapes: {[data[k].shape for k in data.keys()]}")
+        logging.info(f"Dataset shapes: {[(k, data[k].shape) for k in data.keys()]}")
         save_npz_dict(data, out_path)
         logging.info(f"Dataset saved to {out_path}")
         return data
