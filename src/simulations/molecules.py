@@ -1,7 +1,8 @@
-from collections.abc import Sequence, Callable
 import numpy as np
-from utils.molecule_utils import assemble_molecules, compute_ccsd
+from tqdm import tqdm
 from pyscf import gto
+from collections.abc import Sequence, Callable
+from utils.molecule_utils import assemble_molecules, compute_ccsd
 
 
 class MoleculeSimulator:
@@ -157,6 +158,75 @@ class MoleculeSimulator:
         )
 
         return ccsd
+
+
+    def sample(
+        self,
+        batch_size: int,
+        num_molecules: int | None = None,
+        species: str
+        | list[tuple[str, Sequence[float]]]
+        | dict[str, Sequence[float]]
+        | Callable
+        | None = None,
+        species_kwargs: dict | None = None,
+        show_progress: bool = True,
+    ) -> dict[str, np.ndarray]:
+        """
+        Generate a batch of CCSD simulations by repeatedly calling `simulate()`,
+        and return the results stacked into a dictionary.
+
+        Parameters
+        ----------
+        batch_size : int
+            Number of batches to simulate.
+        num_molecules : int, optional
+            Number of molecular units per simulation. Defaults to the instance's value.
+        species : str | list of (atom, coord) | dict | callable, optional
+            Base molecular unit (overrides instance's value if provided).
+        species_kwargs : dict, optional
+            Extra kwargs for callable `species`.
+        show_progress : bool, optional
+            If True, display a tqdm progress bar.
+
+        Returns
+        -------
+        dict[str, np.ndarray]
+            Dictionary with the same keys as a single `simulate()` call,
+            with each value stacked to shape (N, *orig_shape).
+        """
+        if batch_size < 1:
+            raise ValueError("Batch size must be a positive integer")
+
+        iterator = range(batch_size)
+        if show_progress:
+            iterator = tqdm(iterator, desc="Sampling CCSD dataset", unit="sim")
+
+        # Run first simulation to initialize structure
+        first = self.simulate(
+            num_molecules=num_molecules,
+            species=species,
+            species_kwargs=species_kwargs,
+        )
+        keys = list(first.keys())
+        buffers = {k: [first[k]] for k in keys}
+
+        # Remaining simulations
+        for _ in iterator if show_progress else iterator:
+            out = self.simulate(
+                num_molecules=num_molecules,
+                species=species,
+                species_kwargs=species_kwargs,
+            )
+            for k in keys:
+                if out[k].shape != buffers[k][0].shape:
+                    raise ValueError(
+                        f"Shape mismatch for key '{k}': expected {buffers[k][0].shape}, got {out[k].shape}"
+                    )
+                buffers[k].append(out[k])
+
+        # Stack along leading batch axis
+        return {k: np.stack(v, axis=0) for k, v in buffers.items()}
 
     def _cache_base_integrals(self):
         """Precompute and cache integrals for a single unit of the base molecule."""

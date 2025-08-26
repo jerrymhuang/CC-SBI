@@ -229,7 +229,7 @@ def compute_ccsd(
 
         # Flattened singles for ML
         cc_t1 = np.concatenate([t1a.ravel(), t1b.ravel()]).astype(np.float32)
-        out["cc_t1"] = cc_t1
+        out["t1"] = cc_t1
 
         if return_amplitudes:
             out.update(
@@ -254,7 +254,7 @@ def compute_ccsd(
         # Restricted CCSD: single arrays
         cc_t1_full = mycc.t1.astype(np.float32)
         cc_t2_full = mycc.t2.astype(np.float32)
-        out["cc_t1"] = cc_t1_full.reshape(-1).astype(np.float32)
+        out["t1"] = cc_t1_full.reshape(-1).astype(np.float32)
 
         if return_amplitudes:
             out.update(
