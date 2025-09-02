@@ -17,9 +17,9 @@ def h_atom(center: Sequence[float] | None = None) -> list[tuple[str, list[float]
     list of (atom, [x, y, z])
         A one-atom "fragment" compatible with MoleculeSimulator/assemble_molecules.
     """
-    r = np.array([0.0, 0.0, 0.0], dtype=float)
+    r = np.array([0.0, 0.0, 0.0], dtype=np.float32)
     if center is not None:
-        r = r + np.asarray(center, dtype=float)
+        r = r + np.asarray(center, dtype=np.float32)
     return [("H", r.tolist())]
 
 
