@@ -82,6 +82,7 @@ def assemble_molecules(
 
     for i in range(num_molecules):
         offset = np.array([i * bond_distance, 0.0, 0.0], dtype=float)
+        # This only works for H-atoms. Does not work for other molecules.
         noise = (0.25 * rng.random(3) - 0.125) if perturb else np.zeros(3)
         for atom, coord in base:
             xyz = np.asarray(coord, dtype=float) + offset + noise

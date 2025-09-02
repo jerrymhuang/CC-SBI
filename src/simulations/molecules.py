@@ -79,7 +79,7 @@ class MoleculeSimulator:
 
     def simulate(
         self,
-        num_molecules: int,
+        num_molecules: int = None,
         species: str
         | list[tuple[str, Sequence[float]]]
         | dict[str, Sequence[float]]
