@@ -207,4 +207,10 @@ marimo/_lsp/
 __marimo__/
 
 # Dataset
-.npz
+*.npz
+
+# Figures
+*.png
+
+# Checkpoints
+*.ckpt
