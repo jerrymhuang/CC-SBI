@@ -5,7 +5,7 @@ from simulations.molecules import MoleculeSimulator
 
 def h_atom(
     center: Sequence[float] | None = None,
-
+    perturb: bool = True,
 ) -> list[tuple[str, list[float]]]:
     """
     Return a single hydrogen atom fragment centered near the origin.
@@ -28,20 +28,21 @@ def h_atom(
       precomputed coordinates.
     """
     h = [0.0, 0.0, 0.0]
-    fragment = [("H", h)]
+    atom = [("H", h)]
 
     if center is not None:
         c = np.asarray(center, dtype=float)
-        fragment = [(a, (np.asarray(r, float) + c).tolist()) for a, r in fragment]
+        if perturb:
+            c = c + np.random.normal(size=c.shape).astype(np.float32)
+        atom = [(a, (np.asarray(r, float) + c).tolist()) for a, r in atom]
 
-    return fragment
+    return atom
 
 
-def h2(
-    bond_length: float = 0.7414,
-    bond_std: float = 0.05,
+def h_mole(
+    bond_distance: float = 0.74,
+    bond_std: float = 0.01,
     perturb: bool = False,
-    rng: np.random.Generator | None = None,
     center: Sequence[float] | None = None,
     plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
@@ -50,14 +51,12 @@ def h2(
 
     Parameters
     ----------
-    bond_length : float, optional
+    bond_distance : float, optional
         H-H bond length in Å, default is 0.7414.
     bond_std : float, optional
         Standard deviation for bond length sampling (Å), default is 0.05.
     perturb : bool, optional
         If True, apply random perturbations to bond length, default is False.
-    rng : np.random.Generator, optional
-        Random number generator for perturbations, default is None.
     center : Sequence[float], optional
         If provided, translate the fragment so the first hydrogen is at `center`.
     plane : {"xy", "xz", "yz"}, optional
@@ -72,28 +71,27 @@ def h2(
     -----
     - Future versions may support external geometries (e.g., from ASE/OpenMM) by accepting precomputed coordinates.
     """
-    if perturb and rng is not None:
-        bond_length = np.clip(bond_length + rng.normal(0, bond_std), 0.5, 1.5)
 
-    if plane == "xy":
+    # Precompute bond distance
+    if perturb:
+        bond_distance += np.random.normal(0, bond_std)
+
+    if plane == "xy" or "xz":
         h1 = [0.0, 0.0, 0.0]
-        h2_pos = [bond_length, 0.0, 0.0]
-    elif plane == "xz":
-        h1 = [0.0, 0.0, 0.0]
-        h2_pos = [0.0, 0.0, bond_length]
+        h2 = [bond_distance, 0.0, 0.0]
     elif plane == "yz":
         h1 = [0.0, 0.0, 0.0]
-        h2_pos = [0.0, bond_length, 0.0]
+        h2 = [0.0, bond_distance, 0.0]
     else:
         raise ValueError("plane must be one of {'xy','xz','yz'}")
 
-    fragment = [("H", h1), ("H", h2_pos)]
+    molecule = [("H", h1), ("H", h2)]
 
     if center is not None:
         c = np.asarray(center, dtype=float)
-        fragment = [(a, (np.asarray(r, float) + c).tolist()) for a, r in fragment]
+        molecule = [(a, (np.asarray(r, float) + c).tolist()) for a, r in molecule]
 
-    return fragment
+    return molecule
 
 
 if __name__ == "__main__":
@@ -109,7 +107,7 @@ if __name__ == "__main__":
     )
 
     h2_simulator = MoleculeSimulator(
-        species=h2,
+        species=h_mole,
         distance=2.8,
         basis="sto3g",
         perturb=True,
