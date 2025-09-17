@@ -5,6 +5,7 @@ from simulations.molecules import MoleculeSimulator
 
 def h_atom(
     center: Sequence[float] | None = None,
+
 ) -> list[tuple[str, list[float]]]:
     """
     Return a single hydrogen atom fragment centered near the origin.
@@ -39,8 +40,6 @@ def h_atom(
 def h2(
     bond_length: float = 0.7414,
     bond_std: float = 0.05,
-    temperature: float = 300,
-    use_fixed_noise: bool = False,
     perturb: bool = False,
     rng: np.random.Generator | None = None,
     center: Sequence[float] | None = None,
@@ -54,11 +53,7 @@ def h2(
     bond_length : float, optional
         H-H bond length in Å, default is 0.7414.
     bond_std : float, optional
-        Standard deviation for bond length sampling (Å) at 300 K, default is 0.05.
-    temperature : float, optional
-        Temperature (K) for scaling perturbations, default is 300.
-    use_fixed_noise : bool, optional
-        If True, use bond_std directly; if False, scale by sqrt(temperature/300), default is False.
+        Standard deviation for bond length sampling (Å), default is 0.05.
     perturb : bool, optional
         If True, apply random perturbations to bond length, default is False.
     rng : np.random.Generator, optional
@@ -78,15 +73,14 @@ def h2(
     - Future versions may support external geometries (e.g., from ASE/OpenMM) by accepting precomputed coordinates.
     """
     if perturb and rng is not None:
-        noise_std = bond_std if use_fixed_noise else bond_std * np.sqrt(temperature / 300)
-        bond_length = np.clip(bond_length + rng.normal(0, noise_std), 0.5, 1.5)
+        bond_length = np.clip(bond_length + rng.normal(0, bond_std), 0.5, 1.5)
 
     if plane == "xy":
         h1 = [0.0, 0.0, 0.0]
         h2_pos = [bond_length, 0.0, 0.0]
     elif plane == "xz":
         h1 = [0.0, 0.0, 0.0]
-        h2_pos = [bond_length, 0.0, 0.0]
+        h2_pos = [0.0, 0.0, bond_length]
     elif plane == "yz":
         h1 = [0.0, 0.0, 0.0]
         h2_pos = [0.0, bond_length, 0.0]
@@ -106,26 +100,20 @@ if __name__ == "__main__":
     # Quick self-test: a chain of H atoms and H2 molecules
     h_atoms_simulator = MoleculeSimulator(
         species=h_atom,
-        bond_distance=1.0,
+        distance=1.0,
         basis="sto3g",
         perturb=True,
         position_noise=0.1,
-        temperature=300,
-        use_fixed_noise=False,
-        seed=123,
         coord_scale=0.1,
         verbose=0,
     )
 
     h2_simulator = MoleculeSimulator(
         species=h2,
-        bond_distance=2.8,
+        distance=2.8,
         basis="sto3g",
         perturb=True,
         position_noise=0.1,
-        temperature=300,
-        use_fixed_noise=False,
-        seed=42,
         coord_scale=0.1,
         cache_integrals=True,
     )

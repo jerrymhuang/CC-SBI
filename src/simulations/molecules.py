@@ -1,7 +1,7 @@
 import numpy as np
 from collections.abc import Sequence, Callable
 from utils.molecule_utils import assemble_molecules, compute_ccsd
-from pyscf import gto, scf, hessian
+from pyscf import gto
 
 
 class MoleculeSimulator:
@@ -15,17 +15,13 @@ class MoleculeSimulator:
         | Callable = "H",
         species_kwargs: dict | None = None,
         num_molecules: int = 1,
-        bond_distance: float = 2.0,
+        distance: float = 2.0,
         basis: str = "sto3g",
         perturb: bool = True,
         position_noise: float = 0.1,
-        temperature: float = 300,
-        use_fixed_noise: bool = False,
-        normal_mode_sampling: bool = False,
         arrangement: str = "chain",
         cluster_size: float = 2.0,
         min_inter_dist: float | None = None,
-        seed: int | None = None,
         verbose: int = 0,
         return_amplitudes: bool = False,
         coord_scale: float | None = 0.1,
@@ -46,30 +42,21 @@ class MoleculeSimulator:
             Keyword arguments for callable `species`, default is None.
         num_molecules : int, optional
             Number of base units to simulate, default is 1.
-        bond_distance : float, optional
+        distance : float, optional
             Ideal center-to-center distance between units in chains (Å), or scale for clusters, default is 2.0.
         basis : str, optional
             Basis set for quantum chemistry calculations, default is "sto3g".
         perturb : bool, optional
-            If True, apply random translational noise and internal perturbations (e.g., bond/angle sampling),
+            If True, apply random translational noise to single atoms or internal perturbations for molecules,
             default is True.
         position_noise : float, optional
-            Standard deviation of translational noise (Å) at 300 K (if use_fixed_noise=False) or fixed,
-            default is 0.1.
-        temperature : float, optional
-            Temperature (K) for scaling noise amplitude, default is 300.
-        use_fixed_noise : bool, optional
-            If True, use position_noise directly; if False, scale by sqrt(temperature/300), default is False.
-        normal_mode_sampling : bool, optional
-            If True, sample internal coordinates along normal modes for callable species, default is False.
+            Standard deviation of translational noise for single atoms (Å), default is 0.1.
         arrangement : {"chain", "cluster"}, optional
             Arrangement type: "chain" (linear along +x) or "cluster" (random 3D in a sphere), default is "chain".
         cluster_size : float, optional
             Scaling factor for cluster sphere radius, default is 2.0.
         min_inter_dist : float, optional
             Minimum center-to-center distance in clusters (Å), default is bond_distance / 3.
-        seed : int, optional
-            Random seed for perturbations, default is None.
         verbose : int, optional
             Verbosity level for PySCF calculations, default is 0.
         return_amplitudes : bool, optional
@@ -87,35 +74,28 @@ class MoleculeSimulator:
         self.species = species
         self.species_kwargs = species_kwargs or {}
         self.num_molecules = num_molecules
-        self.bond_distance = bond_distance
+        self.distance = distance
         self.basis = basis
         self.perturb = perturb
         self.position_noise = position_noise
-        self.temperature = temperature
-        self.use_fixed_noise = use_fixed_noise
-        self.normal_mode_sampling = normal_mode_sampling
         self.arrangement = arrangement
         self.cluster_size = cluster_size
         self.min_inter_dist = min_inter_dist
-        self.seed = seed
         self.verbose = verbose
         self.return_amplitudes = return_amplitudes
         self.coord_scale = coord_scale
         self.cache_integrals = cache_integrals
         self._integral_cache = {}
-        self._normal_modes_cache = None
-
-        if cache_integrals or normal_mode_sampling:
+        if cache_integrals:
             self._cache_base_integrals()
 
     def _cache_base_integrals(self):
-        """Cache integrals and normal modes for the base molecule."""
+        """Cache integrals for the base molecule."""
         base_molecule = assemble_molecules(
             num_molecules=1,
-            bond_distance=self.bond_distance,
+            distance=self.distance,
             species=self.species,
-            perturb=False,  # No perturbations for base geometry
-            seed=self.seed,
+            perturb=self.perturb,
             species_kwargs=self.species_kwargs,
         )
         mol = gto.Mole()
@@ -126,7 +106,8 @@ class MoleculeSimulator:
         mol.basis = self.basis
         mol.verbose = self.verbose
         mol.charge = 0
-        mol.spin = sum(gto.charge(atom) for atom in base_molecule["species"]) % 2
+        n_electrons = sum(gto.charge(atom) for atom in base_molecule["species"]) - mol.charge
+        mol.spin = n_electrons % 2
         mol.build()
 
         if self.cache_integrals:
@@ -137,22 +118,6 @@ class MoleculeSimulator:
                 "full_overlap": mol.intor("int1e_ovlp").astype(np.float32),
             }
 
-        if self.normal_mode_sampling:
-            # Compute normal modes and frequencies
-            mf = scf.RHF(mol).run() if mol.spin == 0 else scf.UHF(mol).run()
-            hess = hessian.RHF(mf).kernel() if mol.spin == 0 else hessian.UHF(mf).kernel()
-            # Simplified: Needs mass-weighting and mode filtering
-            masses = np.array([mol.mass(atom) for atom in base_molecule["species"]])
-            mass_weights = np.repeat(1.0 / np.sqrt(masses), 3)
-            mass_weighted_hess = hess * mass_weights[:, None, :, None] * mass_weights[None, :, None, :]
-            mass_weighted_hess = mass_weighted_hess.reshape(3 * len(mol.atom), 3 * len(mol.atom))
-            eigenvalues, eigenvectors = np.linalg.eigh(mass_weighted_hess)
-            freqs = np.sqrt(np.abs(eigenvalues)) * 2.194746e5  # Convert to cm^-1 (approx)
-            modes = eigenvectors  # Normal modes
-            # Filter out translational/rotational modes (simplified)
-            valid_modes = freqs > 1e-2  # Remove near-zero frequencies
-            self._normal_modes_cache = (modes[:, valid_modes], freqs[valid_modes])
-
     def simulate(
         self,
         num_molecules: int | None = None,
@@ -162,6 +127,7 @@ class MoleculeSimulator:
         | Callable
         | None = None,
         species_kwargs: dict | None = None,
+        perturb: bool = True
     ) -> dict[str, np.ndarray]:
         """
         Simulate a system and compute CCSD properties.
@@ -187,7 +153,6 @@ class MoleculeSimulator:
         if species is None:
             species = self.species
             species_kwargs = species_kwargs or self.species_kwargs.copy()
-            species_kwargs["normal_modes"] = self._normal_modes_cache if self.normal_mode_sampling else None
         else:
             if not (isinstance(species, (str, list, dict)) or callable(species)):
                 raise TypeError(
@@ -197,16 +162,13 @@ class MoleculeSimulator:
 
         molecules = assemble_molecules(
             num_molecules=num_molecules,
-            bond_distance=self.bond_distance,
+            distance=self.distance,
             species=species,
             arrangement=self.arrangement,
             cluster_size=self.cluster_size,
             min_inter_dist=self.min_inter_dist,
-            perturb=self.perturb,
+            perturb=perturb,
             position_noise=self.position_noise,
-            temperature=self.temperature,
-            use_fixed_noise=self.use_fixed_noise,
-            seed=self.seed,
             species_kwargs=species_kwargs,
         )
 
