@@ -11,6 +11,7 @@ class MoleculeSimulator:
         self,
         species: str
         | list[tuple[str, Sequence[float]]]
+        | list[tuple[str, np.ndarray]]
         | dict[str, Sequence[float]]
         | Callable = "H",
         species_kwargs: dict | None = None,
@@ -123,6 +124,7 @@ class MoleculeSimulator:
         num_molecules: int | None = None,
         species: str
         | list[tuple[str, Sequence[float]]]
+        | list[tuple[str, np.ndarray]]
         | dict[str, Sequence[float]]
         | Callable
         | None = None,

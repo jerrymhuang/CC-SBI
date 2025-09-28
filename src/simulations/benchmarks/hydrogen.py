@@ -27,16 +27,20 @@ def h_atom(
     - Future versions may support external geometries (e.g., from ASE/OpenMM) by accepting
       precomputed coordinates.
     """
-    h = [0.0, 0.0, 0.0]
-    atom = [("H", h)]
+    h = np.zeros(3, dtype=np.float32)
+
+    if perturb:
+        h = h + np.random.normal(size=(3,))
+
+    atoms = [("H", h)]
+
+    print(atoms)
 
     if center is not None:
-        c = np.asarray(center, dtype=float)
-        if perturb:
-            c = c + np.random.normal(size=c.shape).astype(np.float32)
-        atom = [(a, (np.asarray(r, float) + c).tolist()) for a, r in atom]
+        c = np.asarray(center, dtype=np.float32)
+        atoms = [(a, (np.asarray(r, float) + c).tolist()) for a, r in atoms]
 
-    return atom
+    return atoms
 
 
 def h_mole(

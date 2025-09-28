@@ -6,6 +6,7 @@ from pyscf import gto, scf, cc
 def assemble_molecules(
     species: str
     | list[tuple[str, Sequence[float]]]
+    | list[tuple[str, np.ndarray]]
     | dict[str, Sequence[float]]
     | Callable = "H",
     species_kwargs: dict | None = None,
@@ -57,13 +58,10 @@ def assemble_molecules(
 
     if arrangement == "chain":
         for i in range(num_molecules):
-            offset = np.array([i * distance, 0.0, 0.0], dtype=float)
-            # Apply translational noise only for single atoms
-            noise = np.random.normal(0, position_noise, 3) if perturb and is_single_atom else np.zeros(3)
-            center = offset + noise
-            unit_centers.append(center)
+            unit_center = np.array([i * distance, 0.0, 0.0], dtype=float)
+            unit_centers.append(unit_center)
             for atom, coord in base:
-                xyz = np.asarray(coord, dtype=float) + center
+                xyz = np.asarray(coord, dtype=float) + unit_center
                 atoms.append(str(atom))
                 positions.append(xyz.tolist())
 
