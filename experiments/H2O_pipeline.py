@@ -26,8 +26,8 @@ def parse_args():
         Parsed command-line arguments with training parameters.
     """
     parser = argparse.ArgumentParser(description="H2O training pipeline for BayesFlow")
-    parser.add_argument("--train-samples", type=int, default=100, help="Number of training samples")
-    parser.add_argument("--val-samples", type=int, default=10, help="Number of validation samples")
+    parser.add_argument("--train-samples", type=int, default=10000, help="Number of training samples")
+    parser.add_argument("--val-samples", type=int, default=500, help="Number of validation samples")
     parser.add_argument("--num-molecules", type=int, default=7, help="Number of molecules per simulation")
     parser.add_argument("--out-dir", type=str, default="data", help="Output directory for datasets")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Checkpoint directory for model")
