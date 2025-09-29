@@ -23,77 +23,50 @@ def assemble_molecules(
     """
     species_kwargs = species_kwargs or {}
     species_kwargs["perturb"] = perturb
+    species_kwargs["noise_std"] = position_noise  # Pass position_noise as noise_std for h_atom
 
-    # Normalize species to a list[(atom, coord)] at the origin
-    if isinstance(species, str):
-        base = [(species, [0.0, 0.0, 0.0])]
-    elif isinstance(species, dict):
-        base = list(species.items())
-    elif isinstance(species, list):
-        base = species
-    elif callable(species):
-        base = species(**species_kwargs)
-        if not isinstance(base, list) or not all(
-            isinstance(item, tuple)
-            and len(item) == 2
-            and isinstance(item[0], str)
-            and isinstance(item[1], (list, tuple))
-            and len(item[1]) == 3
-            for item in base
-        ):
+    # Normalize non-callable species to a fixed base (computed once, no perturbation)
+    if not callable(species):
+        if isinstance(species, str):
+            fixed_base = [(species, [0.0, 0.0, 0.0])]
+        elif isinstance(species, dict):
+            fixed_base = list(species.items())
+        elif isinstance(species, list):
+            fixed_base = species
+        else:
             raise TypeError(
-                "Callable species must return a list of (str, [float, float, float]) tuples"
+                "species must be a string, list[(atom, coord)], dict{atom: coord}, or callable"
             )
     else:
-        raise TypeError(
-            "species must be a string, list[(atom, coord)], dict{atom: coord}, or callable"
-        )
-
-    # Check if base unit is a single atom
-    is_single_atom = isinstance(species, str) or len(base) == 1
+        fixed_base = None
 
     atoms: list[str] = []
     positions: list[list[float]] = []
-    unit_centers = []  # Track centers for cluster mode
 
-    if arrangement == "chain":
-        for i in range(num_molecules):
-            unit_center = np.array([i * distance, 0.0, 0.0], dtype=float)
-            unit_centers.append(unit_center)
-            for atom, coord in base:
-                xyz = np.asarray(coord, dtype=float) + unit_center
-                atoms.append(str(atom))
-                positions.append(xyz.tolist())
+    for i in range(num_molecules):
+        unit_center = np.array([i * distance, 0.0, 0.0], dtype=float)
 
-    elif arrangement == "cluster":
-        cluster_radius = (num_molecules ** (1 / 3)) * distance * cluster_size / 2
-        min_inter_dist = min_inter_dist or (distance / 3)
-
-        for _ in range(num_molecules):
-            attempts = 0
-            while attempts < 100:
-                vec = np.random.normal(0, 1, 3)
-                vec /= np.linalg.norm(vec)
-                r = np.random.uniform(0, cluster_radius ** 3) ** (1 / 3)
-                pos = vec * r
-                if all(np.linalg.norm(pos - c) >= min_inter_dist for c in unit_centers):
-                    unit_centers.append(pos)
-                    # Apply translational noise only for single atoms
-                    noise = np.random.normal(0, position_noise, 3) if perturb and is_single_atom else np.zeros(3)
-                    center = pos + noise
-                    for atom, coord in base:
-                        xyz = np.asarray(coord, dtype=float) + center
-                        atoms.append(str(atom))
-                        positions.append(xyz.tolist())
-                    break
-                attempts += 1
-            else:
-                raise ValueError(
-                    "Could not place units without overlaps; try larger cluster_size or smaller min_inter_dist"
+        # Get base for this unit (callable gets called per unit for independent perturbations)
+        if callable(species):
+            base = species(**species_kwargs)
+            if not isinstance(base, list) or not all(
+                isinstance(item, tuple)
+                and len(item) == 2
+                and isinstance(item[0], str)
+                and isinstance(item[1], (list, tuple))
+                and len(item[1]) == 3
+                for item in base
+            ):
+                raise TypeError(
+                    "Callable species must return a list of (str, [float, float, float]) tuples"
                 )
+        else:
+            base = fixed_base
 
-    else:
-        raise ValueError("arrangement must be 'chain' or 'cluster'")
+        for atom, coord in base:
+            xyz = np.asarray(coord, dtype=float) + unit_center
+            atoms.append(str(atom))
+            positions.append(xyz.tolist())
 
     return {
         "species": np.array(atoms, dtype=object),
@@ -175,7 +148,7 @@ def compute_ccsd(
     nuc_potential = full_nuc_potential[tril_idx].astype(np.float32)
     overlap = full_overlap[tril_idx].astype(np.float32)
 
-    out: dict[str, np.ndarray] = {
+    sim_data: dict[str, np.ndarray] = {
         "nuc_potential": nuc_potential,
         "overlap": overlap,
         "coordinates": coordinates,
@@ -185,9 +158,9 @@ def compute_ccsd(
         t1a, t1b = mycc.t1
         t2aa, t2ab, t2bb = mycc.t2
         cc_t1 = np.concatenate([t1a.ravel(), t1b.ravel()]).astype(np.float32)
-        out["t1"] = cc_t1
+        sim_data["t1"] = cc_t1
         if return_amplitudes:
-            out.update(
+            sim_data.update(
                 cc_t1_full=cc_t1,
                 cc_t2_full=np.concatenate(
                     [t2aa.ravel(), t2ab.ravel(), t2bb.ravel()]
@@ -200,9 +173,9 @@ def compute_ccsd(
     else:
         cc_t1_full = mycc.t1.astype(np.float32)
         cc_t2_full = mycc.t2.astype(np.float32)
-        out["t1"] = cc_t1_full.reshape(-1).astype(np.float32)
+        sim_data["t1"] = cc_t1_full.reshape(-1).astype(np.float32)
         if return_amplitudes:
-            out.update(
+            sim_data.update(
                 cc_t1_full=cc_t1_full,
                 cc_t2_full=cc_t2_full,
                 eri=eri,
@@ -211,4 +184,4 @@ def compute_ccsd(
                 nuc_potential=full_nuc_potential,
             )
 
-    return out
+    return sim_data
