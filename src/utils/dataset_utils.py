@@ -1,6 +1,5 @@
 import logging
 import numpy as np
-import bayesflow as bf
 
 from pathlib import Path
 from typing import Dict, Union
@@ -53,7 +52,8 @@ def generate_dataset(
     simulator: MoleculeSimulator,
     batch_size: int,
     num_molecules: int,
-    out_path: Union[str, Path]
+    out_path: Union[str, Path],
+    show_progress: bool = True
 ) -> Dict[str, np.ndarray]:
     """Generate or load a dataset of molecular simulations.
 
@@ -102,7 +102,7 @@ def generate_dataset(
 
     logging.info(f"Generating dataset ({batch_size} samples, {num_molecules} molecules)...")
     try:
-        data = simulator.sample(batch_size=batch_size, num_molecules=num_molecules, show_progress=True)
+        data = simulator.sample(samples=batch_size, num_molecules=num_molecules, show_progress=show_progress)
         logging.info(f"Dataset keys: {list(data.keys())}")
         logging.info(f"Dataset shapes: {[(k, data[k].shape) for k in data.keys()]}")
         save_npz_dict(data, out_path)
