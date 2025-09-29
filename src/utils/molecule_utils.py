@@ -11,19 +11,20 @@ def assemble_molecules(
     | Callable = "H",
     species_kwargs: dict | None = None,
     num_molecules: int = 1,
-    arrangement: str = "chain",
-    cluster_size: float = 2.0,
     distance: float = 2.0,
-    min_inter_dist: float | None = None,
     perturb: bool = True,
-    position_noise: float = 0.1,
+    noise: float = 0.05,
+    bond_noise: float = 0.05,
+    angle_noise: float = 0.1,
 ) -> dict[str, np.ndarray]:
     """
     Generate a set of atoms or molecular fragments in a specified arrangement.
     """
     species_kwargs = species_kwargs or {}
     species_kwargs["perturb"] = perturb
-    species_kwargs["noise_std"] = position_noise  # Pass position_noise as noise_std for h_atom
+    # species_kwargs["noise"] = noise  # Pass position_noise as noise_std for h_atom
+    species_kwargs["bond_noise"] = bond_noise
+    species_kwargs["angle_noise"] = angle_noise
 
     # Normalize non-callable species to a fixed base (computed once, no perturbation)
     if not callable(species):
