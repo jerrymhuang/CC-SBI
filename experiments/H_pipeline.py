@@ -26,8 +26,8 @@ def parse_args():
         Parsed command-line arguments with training parameters.
     """
     parser = argparse.ArgumentParser(description="Hydrogen atom training pipeline for BayesFlow")
-    parser.add_argument("--train-samples", type=int, default=50, help="Number of training samples")
-    parser.add_argument("--val-samples", type=int, default=5, help="Number of validation samples")
+    parser.add_argument("--train-samples", type=int, default=100, help="Number of training samples")
+    parser.add_argument("--val-samples", type=int, default=10, help="Number of validation samples")
     parser.add_argument("--num-molecules", type=int, default=7, help="Number of molecules per simulation")
     parser.add_argument("--out-dir", type=str, default="data", help="Output directory for datasets")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Checkpoint directory for model")
@@ -58,7 +58,6 @@ def main():
         species=h_atom,
         num_molecules=args.num_molecules,
         basis="sto3g",
-        seed=None,
         coord_scale=0.1
     )
 
@@ -87,10 +86,18 @@ def main():
     # Generate and verify datasets, train, and visualize diagnostics
     try:
         train_set = generate_dataset(
-            simulator, args.train_samples, args.num_molecules, out_dir / f"h_atom_{args.num_molecules}_train.npz"
+            simulator,
+            args.train_samples,
+            args.num_molecules,
+            out_dir / f"h_atom_{args.num_molecules}_train.npz",
+            show_progress=True
         )
         val_set = generate_dataset(
-            simulator, args.val_samples, args.num_molecules, out_dir / f"h_atom_{args.num_molecules}_val.npz"
+            simulator,
+            args.val_samples,
+            args.num_molecules,
+            out_dir / f"h_atom_{args.num_molecules}_val.npz",
+            show_progress=True
         )
         logging.info("Verifying dataset structure...")
         train_data = load_npz_dict(out_dir / f"h_atom_{args.num_molecules}_train.npz")
