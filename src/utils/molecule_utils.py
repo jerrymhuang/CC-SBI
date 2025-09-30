@@ -4,27 +4,16 @@ from pyscf import gto, scf, cc
 
 
 def assemble_molecules(
-    species: str
-    | list[tuple[str, Sequence[float]]]
-    | list[tuple[str, np.ndarray]]
-    | dict[str, Sequence[float]]
-    | Callable = "H",
+    species,
     species_kwargs: dict | None = None,
     num_molecules: int = 1,
-    distance: float = 2.0,
-    perturb: bool = True,
-    noise: float = 0.05,
-    bond_noise: float = 0.05,
-    angle_noise: float = 0.1,
+    distance: float = 1.0,
+    chain: bool = False,
 ) -> dict[str, np.ndarray]:
     """
     Generate a set of atoms or molecular fragments in a specified arrangement.
     """
     species_kwargs = species_kwargs or {}
-    species_kwargs["perturb"] = perturb
-    # species_kwargs["noise"] = noise  # Pass position_noise as noise_std for h_atom
-    species_kwargs["bond_noise"] = bond_noise
-    species_kwargs["angle_noise"] = angle_noise
 
     # Normalize non-callable species to a fixed base (computed once, no perturbation)
     if not callable(species):
@@ -50,6 +39,7 @@ def assemble_molecules(
         # Get base for this unit (callable gets called per unit for independent perturbations)
         if callable(species):
             base = species(**species_kwargs)
+            # Safety checks
             if not isinstance(base, list) or not all(
                 isinstance(item, tuple)
                 and len(item) == 2
@@ -65,9 +55,12 @@ def assemble_molecules(
             base = fixed_base
 
         for atom, coord in base:
-            xyz = np.asarray(coord, dtype=float) + unit_center
+            # Displace
+            pos = np.asarray(coord, dtype=float) + (unit_center if chain else 0.0)
+
+            # Collect
             atoms.append(str(atom))
-            positions.append(xyz.tolist())
+            positions.append(pos.tolist())
 
     return {
         "species": np.array(atoms, dtype=object),

@@ -4,28 +4,16 @@ from utils.molecule_utils import assemble_molecules, compute_ccsd
 from pyscf import gto
 from tqdm import tqdm
 
-
 class MoleculeSimulator:
     """Simulate molecular systems and compute CCSD properties for ML datasets."""
 
     def __init__(
         self,
-        species: str
-        | list[tuple[str, list[float]]]
-        | list[tuple[str, np.ndarray]]
-        | dict[str, list[float]]
-        | Callable = "H",
+        species: str | list[tuple[str, list[float]]] | list[tuple[str, np.ndarray]] | dict[str, list[float]] | Callable,
         species_kwargs: dict | None = None,
         num_molecules: int = 1,
         distance: float = 2.0,
         basis: str = "sto3g",
-        perturb: bool = True,
-        noise: float = 0.05,
-        bond_noise: float = 0.05,
-        angle_noise: float = 0.01,
-        arrangement: str = "chain",
-        cluster_size: float = 2.0,
-        min_inter_dist: float | None = None,
         verbose: int = 0,
         return_amplitudes: bool = False,
         coord_scale: float | None = 0.1,
@@ -39,13 +27,6 @@ class MoleculeSimulator:
         self.num_molecules = num_molecules
         self.distance = distance
         self.basis = basis
-        self.perturb = perturb
-        self.noise = noise
-        self.bond_noise = bond_noise
-        self.angle_noise = angle_noise
-        self.arrangement = arrangement
-        self.cluster_size = cluster_size
-        self.min_inter_dist = min_inter_dist
         self.verbose = verbose
         self.return_amplitudes = return_amplitudes
         self.coord_scale = coord_scale
@@ -64,7 +45,6 @@ class MoleculeSimulator:
         | Callable
         | None = None,
         species_kwargs: dict | None = None,
-        perturb: bool = True
     ) -> dict[str, np.ndarray]:
         """
         Simulate a system and compute CCSD properties.
@@ -87,10 +67,6 @@ class MoleculeSimulator:
             num_molecules=num_molecules,
             distance=self.distance,
             species=species,
-            perturb=perturb,
-            noise=self.noise,
-            bond_noise=self.bond_noise,
-            angle_noise=self.angle_noise,
             species_kwargs=species_kwargs,
         )
 
@@ -119,22 +95,6 @@ class MoleculeSimulator:
     ) -> list[dict[str, np.ndarray]]:
         """
         Generate multiple CCSD samples.
-
-        Parameters
-        ----------
-        samples : int, optional
-            Number of samples to generate, default is None (uses num_molecules).
-        num_molecules : int, optional
-            Number of units per sample, defaults to self.num_molecules.
-        species : str, list, dict, or callable, optional
-            Base unit to simulate, defaults to self.species.
-        species_kwargs : dict, optional
-            Keyword arguments for callable species, defaults to self.species_kwargs.
-
-        Returns
-        -------
-        list of dict
-            List of CCSD outputs for each sample.
         """
         if samples is None:
             samples = self.num_molecules
@@ -160,7 +120,6 @@ class MoleculeSimulator:
             num_molecules=1,
             distance=self.distance,
             species=self.species,
-            perturb=self.perturb,
             species_kwargs=self.species_kwargs,
         )
         mol = gto.Mole()
