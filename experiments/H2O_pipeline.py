@@ -28,7 +28,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="H2O training pipeline for BayesFlow")
     parser.add_argument("--train-samples", type=int, default=10000, help="Number of training samples")
     parser.add_argument("--val-samples", type=int, default=500, help="Number of validation samples")
-    parser.add_argument("--num-molecules", type=int, default=7, help="Number of molecules per simulation")
+    parser.add_argument("--num-molecules", type=int, default=1, help="Number of molecules per simulation")
     parser.add_argument("--out-dir", type=str, default="data", help="Output directory for datasets")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Checkpoint directory for model")
     parser.add_argument("--figures-dir", type=str, default="figures", help="Output directory for diagnostic figures")
@@ -117,7 +117,7 @@ def main():
 
         # Generate and save diagnostics
         logging.info("Generating diagnostics...")
-        fig_size = (18, 21)
+        fig_size = (12, 164)
         figures = dm_workflow.plot_default_diagnostics(
             test_data=val_set,
             loss_kwargs={"figsize": (15, 3), "label_fontsize": 12},
