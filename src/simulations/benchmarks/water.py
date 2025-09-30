@@ -6,9 +6,9 @@ from simulations.molecules import MoleculeSimulator
 def water(
     bond_distance: float = 0.9572,
     angle: float = 104.5,
-    bond_noise: float = 0.05,
-    angle_noise: float = 0.1,
-    perturb: bool = False,
+    bond_noise: float = 0.25,
+    angle_noise: float = 10,
+    perturb: bool = True,
     center: Sequence[float] | None = None,
     plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
@@ -24,7 +24,7 @@ def water(
         r1 = r2 = bond_distance
         theta = np.deg2rad(angle)
 
-    # Position hydrogens in the specified plane
+    # Position hydrogen atoms in the specified plane
     if plane == "xy":
         o = [0.0, 0.0, 0.0]
         h1 = [r1 * np.cos(theta / 2), r1 * np.sin(theta / 2), 0.0]
@@ -55,15 +55,12 @@ if __name__ == "__main__":
     water_simulator = MoleculeSimulator(
         species=water,
         distance=1.0,
-        basis="sto3g",
-        perturb=True,
-        bond_noise=0.05,
-        angle_noise=0.1,
+        basis="sto-3g",
         coord_scale=0.1,
         verbose=0,
     )
 
-    water_sim = water_simulator.simulate(num_molecules=7)
+    water_sim = water_simulator.simulate(num_molecules=1)
 
     print("Water (as chain):", {k: v.shape for k, v in water_sim.items()})
     print(water_sim["coordinates"])

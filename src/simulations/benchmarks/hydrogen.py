@@ -1,12 +1,14 @@
 import numpy as np
 from collections.abc import Sequence
+from utils.molecule_utils import assemble_molecules
 from simulations.molecules import MoleculeSimulator
+
 
 
 def h_atom(
     center: Sequence[float] | None = None,
     perturb: bool = True,
-    noise: float = 0.05
+    noise: float = 0.25
 ) -> list[tuple[str, list[float]]]:
     """
     Return a single hydrogen atom centered near the origin.
@@ -28,8 +30,8 @@ def h_atom(
 
 def h_mole(
     bond_distance: float = 0.74,
-    perturb: bool = False,
-    noise: float = 0.05,
+    perturb: bool = True,
+    bond_noise: float = 0.25,
     center: Sequence[float] | None = None,
     plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
@@ -39,7 +41,7 @@ def h_mole(
 
     # Precompute bond distance
     if perturb:
-        bond_distance += np.random.normal(0, noise)
+        bond_distance += np.random.normal(0, bond_noise)
 
     if plane in ["xy", "xz"]:
         h1 = [0.0, 0.0, 0.0]
@@ -60,23 +62,33 @@ def h_mole(
 
 
 if __name__ == "__main__":
+
+    # Test the functions themselves
+    try:
+        h = h_atom()
+        h2 = h_mole()
+    except ValueError as e:
+        print(e)
+
+    # Test if they work properly with assemble_molecules
+    try:
+        h_atoms = assemble_molecules(species=h_atom, num_molecules=7)
+        h_moles = assemble_molecules(species=h_mole, num_molecules=3)
+    except ValueError as e:
+        print(e)
+
     # Quick self-test: a chain of H atoms and H2 molecules
     h_atoms_simulator = MoleculeSimulator(
         species=h_atom,
         distance=1.0,
         basis="sto3g",
-        perturb=True,
-        noise=0.1,
-        coord_scale=0.1,
+        coord_scale=1,
         verbose=0,
     )
-
     h2_simulator = MoleculeSimulator(
         species=h_mole,
         distance=2.8,
         basis="sto3g",
-        perturb=True,
-        noise=0.1,
         coord_scale=0.1,
         cache_integrals=True,
     )
