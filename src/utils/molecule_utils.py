@@ -74,7 +74,7 @@ def compute_ccsd(
     basis: str = "sto3g",
     coordinate_scale: float | None = 0.1,
     verbose: int = 0,
-    return_amplitudes: bool = False,
+    return_amplitudes: bool = True,
     charge: int | None = None,
     spin: int | None = None,
 ) -> dict[str, np.ndarray]:
@@ -129,6 +129,7 @@ def compute_ccsd(
         mycc = cc.CCSD(mf).run()
         is_uccsd = False
 
+
     coordinates = np.array(
         [coordinate for _, coordinate in pyscf_atoms], dtype=np.float32
     )
@@ -151,8 +152,14 @@ def compute_ccsd(
     if is_uccsd:
         t1a, t1b = mycc.t1
         t2aa, t2ab, t2bb = mycc.t2
+        rdm1 = mycc.make_rdm1()
+        rdm2 = mycc.make_rdm2()
+        print(rdm1, rdm2.shape)
+        print(t2aa.shape, t2ab.shape, t2bb.shape)
         cc_t1 = np.concatenate([t1a.ravel(), t1b.ravel()]).astype(np.float32)
+        cc_t2 = np.concatenate([t2aa.ravel(), t2ab.ravel(), t2bb.ravel()]).astype(np.float32)
         sim_data["t1"] = cc_t1
+        sim_data["t2"] = cc_t2
         if return_amplitudes:
             sim_data.update(
                 cc_t1_full=cc_t1,

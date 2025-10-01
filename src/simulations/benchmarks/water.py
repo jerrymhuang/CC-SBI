@@ -9,6 +9,7 @@ def water(
     bond_noise: float = 0.25,
     angle_noise: float = 10,
     perturb: bool = True,
+    equal_bonds: bool = True,
     center: Sequence[float] | None = None,
     plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
@@ -17,8 +18,12 @@ def water(
     """
     # Apply perturbations if requested
     if perturb:
-        r1 = bond_distance + np.random.normal(0, bond_noise)
-        r2 = bond_distance + np.random.normal(0, bond_noise)
+        if equal_bonds:
+            r1 = r2 = bond_distance + np.random.normal(0, bond_noise)
+        else:
+            r1 = bond_distance + np.random.normal(0, bond_noise)
+            r2 = bond_distance + np.random.normal(0, bond_noise)
+
         theta = np.deg2rad(angle + np.random.normal(0, angle_noise))
     else:
         r1 = r2 = bond_distance
@@ -55,7 +60,7 @@ if __name__ == "__main__":
     water_simulator = MoleculeSimulator(
         species=water,
         distance=1.0,
-        basis="sto-3g",
+        basis="cc-pVTZ",
         coord_scale=0.1,
         verbose=0,
     )

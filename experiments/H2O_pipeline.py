@@ -57,7 +57,7 @@ def main():
     simulator = MoleculeSimulator(
         species=water,
         num_molecules=args.num_molecules,
-        basis="sto3g",
+        basis="cc-pVTZ",
         coord_scale=0.1
     )
 
@@ -86,13 +86,13 @@ def main():
     # Generate and verify datasets, train, and visualize diagnostics
     try:
         train_set = generate_dataset(
-            simulator, args.train_samples, args.num_molecules, out_dir / "h2o_train.npz"
+            simulator, args.train_samples, args.num_molecules, out_dir / "h2o_train_cc-pVTZ.npz"
         )
         val_set = generate_dataset(
-            simulator, args.val_samples, args.num_molecules, out_dir / "h2o_val.npz"
+            simulator, args.val_samples, args.num_molecules, out_dir / "h2o_val_cc-pVTZ.npz"
         )
         logging.info("Verifying dataset structure...")
-        train_data = load_npz_dict(out_dir / "h2o_train.npz")
+        train_data = load_npz_dict(out_dir / "h2o_train_cc-pVTZ.npz")
         verify_dataset(train_data)
 
         # Check batch size
@@ -117,17 +117,17 @@ def main():
 
         # Generate and save diagnostics
         logging.info("Generating diagnostics...")
-        fig_size = (12, 164)
+        fig_size = (18, 108)
         figures = dm_workflow.plot_default_diagnostics(
             test_data=val_set,
-            loss_kwargs={"figsize": (15, 3), "label_fontsize": 12},
+            loss_kwargs={"figsize": (12, 3), "label_fontsize": 12},
             recovery_kwargs={"figsize": fig_size, "label_fontsize": 12},
             calibration_ecdf_kwargs={"figsize": fig_size, "legend_fontsize": 8, "difference": True,
                                      "label_fontsize": 12},
             z_score_contraction_kwargs={"figsize": fig_size, "label_fontsize": 12}
         )
         for plot_name, fig in figures.items():
-            fig_path = figures_dir / f"h20_{plot_name}.png"
+            fig_path = figures_dir / f"h20_cc-pVTZ_{plot_name}.png"
             fig.savefig(fig_path, dpi=300, bbox_inches="tight")
             plt.close(fig)
             logging.info(f"Saved diagnostic plot to {fig_path}")
