@@ -34,6 +34,7 @@ def parse_args():
     parser.add_argument("--figures-dir", type=str, default="figures", help="Output directory for diagnostic figures")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training")
+    parser.add_argument("--basis", type=str, default="cc-pVTZ", help="Basis fucntion for simulation")
     return parser.parse_args()
 
 def main():
