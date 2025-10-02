@@ -1,11 +1,12 @@
 import numpy as np
 from collections.abc import Sequence
+from simulations.molecules import MoleculeSimulator
 
 
 def hf(
     bond_distance: float = 0.917,
-    bond_std: float = 0.05,
-    perturb: bool = False,
+    bond_noise: float = 0.25,
+    perturb: bool = True,
     center: Sequence[float] | None = None,
     plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
@@ -16,8 +17,8 @@ def hf(
     ----------
     bond_distance : float, optional
         H-F bond length in Å, default is 0.917.
-    bond_std : float, optional
-        Standard deviation for bond length sampling (Å), default is 0.05.
+    bond_noise : float, optional
+        Standard deviation for bond length sampling (Å), default is 0.25.
     perturb : bool, optional
         If True, apply random perturbations to bond length, default is False.
     center : Sequence[float], optional
@@ -32,9 +33,9 @@ def hf(
     """
     #
     if perturb:
-        bond_distance = np.random.normal(bond_distance, bond_std)
+        bond_distance = np.random.normal(bond_distance, bond_noise)
 
-    if plane == "xy" or "xz":
+    if plane in ["xy", "xz"]:
         h = [bond_distance, 0.0, 0.0]
         f = [0.0, 0.0, 0.0]
     elif plane == "yz":
@@ -50,3 +51,20 @@ def hf(
         molecule = [(a, (np.asarray(r, float) + c).tolist()) for a, r in molecule]
 
     return molecule
+
+
+if __name__ == "__main__":
+
+    # Quick self-test: a chain of H atoms and H2 molecules
+    water_simulator = MoleculeSimulator(
+        species=hf,
+        distance=1.0,
+        basis="cc-pVTZ",
+        coord_scale=0.1,
+        verbose=0,
+    )
+
+    water_sim = water_simulator.simulate(num_molecules=1)
+
+    print("Water (as chain):", {k: v.shape for k, v in water_sim.items()})
+    print(water_sim["coordinates"])
