@@ -12,7 +12,7 @@ def ethene(
     plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
     """
-    Return a C2H4 fragment centered near the origin.
+    Return a C2H4 molecule centered near the origin.
 
     Parameters
     ----------
@@ -25,10 +25,10 @@ def ethene(
     twist_angle : float
         Dihedral twist angle between the two CH2 planes in degrees.
     center : sequence of 3 floats, optional
-        If provided, translate the fragment so that the midpoint of C=C is near ``center``.
+        If provided, translate the molecule so that the midpoint of C=C is near ``center``.
     plane : {"xy", "xz", "yz"}
         Plane in which to place the untwisted molecule. Useful if you want to
-        stack fragments without overlapping in z.
+        stack molecules without overlapping in z.
 
     Returns
     -------
@@ -80,7 +80,7 @@ def ethene(
         h[offset_idx] = offset * cos_phi - perp * sin_phi
         h[perp_idx] = offset * sin_phi + perp * cos_phi
 
-    fragment = [
+    molecule = [
         ("C", c1),
         ("C", c2),
         ("H", h11),
@@ -91,22 +91,20 @@ def ethene(
 
     # Center at midpoint of C=C
     midpoint = np.mean(np.array([c1, c2]), axis=0)
-    fragment = [(a, (np.asarray(r) - midpoint).tolist()) for a, r in fragment]
+    molecule = [(a, (np.asarray(r) - midpoint).tolist()) for a, r in molecule]
 
     if center is not None:
         c = np.asarray(center, dtype=float)
-        fragment = [(a, (np.asarray(r, float) + c).tolist()) for a, r in fragment]
+        molecule = [(a, (np.asarray(r, float) + c).tolist()) for a, r in molecule]
 
-    return fragment
+    return molecule
 
 
 if __name__ == "__main__":
     # Quick self-test: a chain of C2H4 with 3 molecules
     simulator = MoleculeSimulator(
         species=ethene,
-        bond_distance=2.8,
         basis="sto3g",
-        seed=42,
         coord_scale=0.1,
         cache_integrals=True,
     )
