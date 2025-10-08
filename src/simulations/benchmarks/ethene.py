@@ -65,8 +65,10 @@ def ethene(
     """
     # Apply perturbations if requested
     if perturb:
+        # Perturb C-C bond distance
         cc_bond = cc_bond_distance + np.random.normal(0, cc_bond_noise)
         if fix_c1_bonds:
+
             ch_bonds = [ch_bond_distance, ch_bond_distance]  # Fixed for C1 (h11, h12)
             if equal_bonds:
                 ch_bond_c2 = ch_bond_distance + np.random.normal(0, ch_bond_noise)
