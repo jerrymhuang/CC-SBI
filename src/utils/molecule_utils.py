@@ -75,6 +75,7 @@ def compute_ccsd(
     coordinate_scale: float | None = 0.1,
     verbose: int = 0,
     return_amplitudes: bool = True,
+    return_geometries: bool = False,
     charge: int | None = None,
     spin: int | None = None,
 ) -> dict[str, np.ndarray]:
@@ -121,10 +122,12 @@ def compute_ccsd(
 
     # Run unrestricted CCSD if open shell, CCSD otherwise
     if open_shell:
+        print("Open shell; running UCCSD.")
         mf = scf.UHF(mol).run()
         mycc = cc.UCCSD(mf).run()
         is_uccsd = True
     else:
+        print("Closed shell; running CCSD.")
         mf = scf.RHF(mol).run()
         mycc = cc.CCSD(mf).run()
         is_uccsd = False
@@ -152,10 +155,7 @@ def compute_ccsd(
     if is_uccsd:
         t1a, t1b = mycc.t1
         t2aa, t2ab, t2bb = mycc.t2
-        rdm1 = mycc.make_rdm1()
-        rdm2 = mycc.make_rdm2()
-        print(rdm1, rdm2.shape)
-        print(t2aa.shape, t2ab.shape, t2bb.shape)
+
         cc_t1 = np.concatenate([t1a.ravel(), t1b.ravel()]).astype(np.float32)
         cc_t2 = np.concatenate([t2aa.ravel(), t2ab.ravel(), t2bb.ravel()]).astype(np.float32)
         sim_data["t1"] = cc_t1
@@ -175,6 +175,7 @@ def compute_ccsd(
         cc_t1_full = mycc.t1.astype(np.float32)
         cc_t2_full = mycc.t2.astype(np.float32)
         sim_data["t1"] = cc_t1_full.reshape(-1).astype(np.float32)
+        sim_data["t2"] = cc_t2_full.reshape(-1).astype(np.float32)
         if return_amplitudes:
             sim_data.update(
                 cc_t1_full=cc_t1_full,
@@ -184,5 +185,9 @@ def compute_ccsd(
                 kinetic=kinetic,
                 nuc_potential=full_nuc_potential,
             )
+
+    if return_geometries:
+        # TODO: add geometric data for the molecule
+        pass
 
     return sim_data
