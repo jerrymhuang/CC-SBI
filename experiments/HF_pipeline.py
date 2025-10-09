@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("--figures-dir", type=str, default="figures", help="Output directory for diagnostic figures")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training")
-    parser.add_argument("--basis", type=str, default="cc-pVTZ", help="Basis fucntion for simulation")
+    parser.add_argument("--basis", type=str, default="{args.basis}", help="Basis fucntion for simulation")
     return parser.parse_args()
 
 def main():
@@ -57,7 +57,7 @@ def main():
     # Define simulator
     simulator = MoleculeSimulator(
         species=hf,
-        basis="cc-pVTZ",
+        basis="{args.basis}",
         coord_scale=0.1
     )
 
@@ -86,13 +86,13 @@ def main():
     # Generate and verify datasets, train, and visualize diagnostics
     try:
         train_set = generate_dataset(
-            simulator, args.train_samples, args.num_molecules, out_dir / f"hf_{args.num_molecules}_cc-pVTZ_train.npz"
+            simulator, args.train_samples, args.num_molecules, out_dir / f"hf_{args.num_molecules}_{args.basis}_train.npz"
         )
         val_set = generate_dataset(
-            simulator, args.val_samples, args.num_molecules, out_dir / f"hf_{args.num_molecules}_cc-pVTZ_val.npz"
+            simulator, args.val_samples, args.num_molecules, out_dir / f"hf_{args.num_molecules}_{args.basis}_val.npz"
         )
         logging.info("Verifying dataset structure...")
-        train_data = load_npz_dict(out_dir / f"hf_{args.num_molecules}_cc-pVTZ_train.npz")
+        train_data = load_npz_dict(out_dir / f"hf_{args.num_molecules}_{args.basis}_train.npz")
         verify_dataset(train_data)
 
         # Check batch size
@@ -109,7 +109,7 @@ def main():
         )
         logging.info("Training completed.")
 
-        # Test reloading checkpoint
+        # Test reloading checkpoint (This step is optional)
         logging.info("Testing model reload...")
         model_path = checkpoint_dir / "hf_diffusion.ckpt" / "model.keras"
         reloaded_model = keras.saving.load_model(model_path)
@@ -118,16 +118,22 @@ def main():
         # Generate and save diagnostics
         logging.info("Generating diagnostics...")
         fig_size = (18, 72)
+        legend_fontsize = 6
+        label_fontsize = 10
         figures = dm_workflow.plot_default_diagnostics(
             test_data=val_set,
-            loss_kwargs={"figsize": (15, 3), "label_fontsize": 12},
-            recovery_kwargs={"figsize": fig_size, "label_fontsize": 12},
-            calibration_ecdf_kwargs={"figsize": fig_size, "legend_fontsize": 8, "difference": True,
-                                     "label_fontsize": 12},
-            z_score_contraction_kwargs={"figsize": fig_size, "label_fontsize": 12}
+            loss_kwargs={"figsize": (15, 3), "label_fontsize": label_fontsize},
+            recovery_kwargs={"figsize": fig_size, "label_fontsize": label_fontsize},
+            calibration_ecdf_kwargs={
+                "figsize": fig_size,
+                "legend_fontsize": legend_fontsize,
+                "difference": True,
+                "label_fontsize": label_fontsize
+            },
+            z_score_contraction_kwargs={"figsize": fig_size, "label_fontsize": label_fontsize}
         )
         for plot_name, fig in figures.items():
-            fig_path = figures_dir / f"hf_{args.num_molecules}_cc-pVTZ_{plot_name}.png"
+            fig_path = figures_dir / f"hf_{args.num_molecules}_{args.basis}_{plot_name}.png"
             fig.savefig(fig_path, dpi=300, bbox_inches="tight")
             plt.close(fig)
             logging.info(f"Saved diagnostic plot to {fig_path}")

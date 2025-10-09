@@ -59,12 +59,12 @@ if __name__ == "__main__":
     water_simulator = MoleculeSimulator(
         species=hf,
         distance=1.0,
-        basis="cc-pVTZ",
+        basis="cc-pVDZ",
         coord_scale=0.1,
         verbose=0,
     )
 
     water_sim = water_simulator.simulate(num_molecules=1)
 
-    print("Water (as chain):", {k: v.shape for k, v in water_sim.items()})
+    print("HF (as chain):", {k: v.shape for k, v in water_sim.items()})
     print(water_sim["coordinates"])
