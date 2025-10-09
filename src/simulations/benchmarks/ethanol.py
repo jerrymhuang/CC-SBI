@@ -144,5 +144,5 @@ if __name__ == "__main__":
         cache_integrals=True,
     )
 
-    sim = ethanol_simulator.simulate(num_molecules=3)
+    sim = ethanol_simulator.simulate(num_molecules=1)
     print("Ethanol molecules:", {k: v.shape for k, v in sim.items()})
