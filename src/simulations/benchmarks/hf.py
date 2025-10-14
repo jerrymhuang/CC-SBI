@@ -1,14 +1,15 @@
 import numpy as np
 from collections.abc import Sequence
+from utils.molecule_utils import assemble_molecules
 from simulations.molecules import MoleculeSimulator
 
 
 def hf(
-    bond_distance: float = 0.917,
-    bond_noise: float = 0.25,
-    perturb: bool = True,
-    center: Sequence[float] | None = None,
-    plane: str = "xy",
+        bond_distance: float = 0.917,
+        bond_noise: float = 0.25,
+        perturb: bool = True,
+        center: Sequence[float] | None = None,
+        plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
     """
     Return an HF molecule centered near a given center with optional perturbations.
@@ -20,7 +21,7 @@ def hf(
     bond_noise : float, optional
         Standard deviation for bond length sampling (Å), default is 0.25.
     perturb : bool, optional
-        If True, apply random perturbations to bond length, default is False.
+        If True, apply random perturbations to bond length, default is True.
     center : Sequence[float], optional
         If provided, translate the fragment so fluorine is at `center`.
     plane : {"xy", "xz", "yz"}, optional
@@ -31,7 +32,6 @@ def hf(
     list of (str, [float, float, float])
         List of (atom symbol, coordinates in Å) for the HF molecule.
     """
-    #
     if perturb:
         bond_distance = np.random.normal(bond_distance, bond_noise)
 
@@ -54,17 +54,30 @@ def hf(
 
 
 if __name__ == "__main__":
+    # Test the hf function
+    try:
+        hf_mol = hf(perturb=False)
+        print(f"HF molecule (no perturbation): {hf_mol}")
 
-    # Quick self-test: a chain of H atoms and H2 molecules
-    water_simulator = MoleculeSimulator(
-        species=hf,
-        distance=1.0,
-        basis="cc-pVDZ",
-        coord_scale=0.1,
-        verbose=0,
-    )
+        # Test with perturbation
+        hf_mol_perturbed = hf(perturb=True, bond_noise=0.1)
+        print(f"HF molecule (perturbed): {hf_mol_perturbed}")
 
-    water_sim = water_simulator.simulate(num_molecules=1)
+        # Test with assemble_molecules
+        hf_assembled = assemble_molecules(species=hf, species_kwargs={"perturb": False})
+        print(f"Assembled HF molecule: {hf_assembled}")
 
-    print("HF (as chain):", {k: v.shape for k, v in water_sim.items()})
-    print(water_sim["coordinates"])
+        # Test with MoleculeSimulator
+        hf_simulator = MoleculeSimulator(
+            species=hf,
+            basis="cc-pVTZ",
+            coord_scale=0.1,
+            verbose=0,
+            return_amplitudes=True,
+        )
+        hf_sim = hf_simulator.simulate(species_kwargs={"perturb": False})
+        print("HF simulation results:", {k: v.shape for k, v in hf_sim.items()})
+        print("HF coordinates:", hf_sim["coordinates"])
+
+    except ValueError as e:
+        print(f"Error: {e}")
