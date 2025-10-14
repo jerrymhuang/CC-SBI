@@ -5,14 +5,12 @@ from pyscf import gto
 from tqdm import tqdm
 
 class MoleculeSimulator:
-    """Simulate molecular systems and compute CCSD properties for ML datasets."""
+    """Simulate closed-shell molecular systems and compute CCSD properties for ML datasets."""
 
     def __init__(
         self,
         species: str | list[tuple[str, list[float]]] | list[tuple[str, np.ndarray]] | dict[str, list[float]] | Callable,
         species_kwargs: dict | None = None,
-        num_molecules: int = 1,
-        distance: float = 2.0,
         basis: str = "sto3g",
         verbose: int = 0,
         return_amplitudes: bool = False,
@@ -20,12 +18,10 @@ class MoleculeSimulator:
         cache_integrals: bool = False,
     ):
         """
-        Initialize the molecule simulator.
+        Initialize the molecule simulator for closed-shell molecules.
         """
         self.species = species
         self.species_kwargs = species_kwargs or {}
-        self.num_molecules = num_molecules
-        self.distance = distance
         self.basis = basis
         self.verbose = verbose
         self.return_amplitudes = return_amplitudes
@@ -37,7 +33,6 @@ class MoleculeSimulator:
 
     def simulate(
         self,
-        num_molecules: int | None = None,
         species: str
         | list[tuple[str, Sequence[float]]]
         | list[tuple[str, np.ndarray]]
@@ -47,12 +42,8 @@ class MoleculeSimulator:
         species_kwargs: dict | None = None,
     ) -> dict[str, np.ndarray]:
         """
-        Simulate a system and compute CCSD properties.
+        Simulate a closed-shell system and compute CCSD properties.
         """
-        if num_molecules is None:
-            num_molecules = self.num_molecules
-        if num_molecules < 1:
-            raise ValueError("N must be a positive integer")
         if species is None:
             species = self.species
             species_kwargs = species_kwargs or self.species_kwargs.copy()
@@ -64,8 +55,6 @@ class MoleculeSimulator:
             species_kwargs = species_kwargs or {}
 
         molecules = assemble_molecules(
-            num_molecules=num_molecules,
-            distance=self.distance,
             species=species,
             species_kwargs=species_kwargs,
         )
@@ -83,8 +72,7 @@ class MoleculeSimulator:
 
     def sample(
         self,
-        samples: int | None = None,
-        num_molecules: int | None = None,
+        samples: int,
         species: str
         | list[tuple[str, Sequence[float]]]
         | dict[str, Sequence[float]]
@@ -92,21 +80,17 @@ class MoleculeSimulator:
         | None = None,
         species_kwargs: dict | None = None,
         show_progress: bool = True
-    ) -> list[dict[str, np.ndarray]]:
+    ) -> dict[str, np.ndarray]:
         """
-        Generate multiple CCSD samples.
+        Generate multiple CCSD samples for closed-shell molecules.
         """
-        if samples is None:
-            samples = self.num_molecules
         if samples < 1:
             raise ValueError("samples must be a positive integer")
-        # Initialize lists to collect outputs
         all_data = []
         for _ in tqdm(range(samples), desc="Generating samples", disable=not show_progress):
-            sample = self.simulate(num_molecules, species, species_kwargs)
+            sample = self.simulate(species, species_kwargs)
             all_data.append(sample)
 
-        # Combine samples into a single dictionary with stacked arrays
         combined_data = {}
         if all_data:
             for key in all_data[0].keys():
@@ -115,10 +99,8 @@ class MoleculeSimulator:
         return combined_data
 
     def _cache_base_integrals(self):
-        """Cache integrals for the base molecule."""
+        """Cache integrals for the base closed-shell molecule."""
         base_molecule = assemble_molecules(
-            num_molecules=1,
-            distance=self.distance,
             species=self.species,
             species_kwargs=self.species_kwargs,
         )
@@ -131,7 +113,9 @@ class MoleculeSimulator:
         mol.verbose = self.verbose
         mol.charge = 0
         n_electrons = sum(gto.charge(atom) for atom in base_molecule["species"]) - mol.charge
-        mol.spin = n_electrons % 2
+        if n_electrons % 2 != 0:
+            raise ValueError("Only closed-shell molecules are supported (even number of electrons required)")
+        mol.spin = 0
         mol.build()
 
         if self.cache_integrals:
