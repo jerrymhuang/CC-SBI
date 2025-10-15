@@ -64,18 +64,18 @@ if __name__ == "__main__":
         print(f"HF molecule (perturbed): {hf_mol_perturbed}")
 
         # Test with assemble_molecules
-        hf_assembled = assemble_molecules(species=hf, species_kwargs={"perturb": False})
+        hf_assembled = assemble_molecules(molecule_fun=hf, molecule_kwargs={"perturb": False})
         print(f"Assembled HF molecule: {hf_assembled}")
 
         # Test with MoleculeSimulator
         hf_simulator = MoleculeSimulator(
-            species=hf,
+            molecule_fun=hf,
             basis="cc-pVTZ",
             coord_scale=0.1,
             verbose=0,
             return_amplitudes=True,
         )
-        hf_sim = hf_simulator.simulate(species_kwargs={"perturb": True})
+        hf_sim = hf_simulator.simulate(molecule_kwargs={"perturb": True})
         print("HF simulation results:", {k: v.shape for k, v in hf_sim.items()})
         print("HF coordinates:", hf_sim["coordinates"])
 
