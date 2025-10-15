@@ -75,7 +75,7 @@ if __name__ == "__main__":
             verbose=0,
             return_amplitudes=True,
         )
-        hf_sim = hf_simulator.simulate(species_kwargs={"perturb": False})
+        hf_sim = hf_simulator.simulate(species_kwargs={"perturb": True})
         print("HF simulation results:", {k: v.shape for k, v in hf_sim.items()})
         print("HF coordinates:", hf_sim["coordinates"])
 
