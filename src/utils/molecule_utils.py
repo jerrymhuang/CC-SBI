@@ -3,47 +3,33 @@ from collections.abc import Sequence, Iterable, Callable
 from pyscf import gto, scf, cc
 
 
-def assemble_molecules(species, species_kwargs: dict | None = None) -> dict[str, np.ndarray]:
+def assemble_molecules(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
     """
-    Generate a single molecule or atom set from species specification.
+    Generate a single molecule or atom set from molecule_fun specification.
     """
-    species_kwargs = species_kwargs or {}
+    molecule_kwargs = molecule_kwargs or {}
+    base = molecule_fun(**molecule_kwargs)
 
-    # Normalize species to list[tuple[str, list[float]]]
-    if callable(species):
-        base = species(**species_kwargs)
-        if not isinstance(base, list) or not all(
-                isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str)
-                and isinstance(item[1], (list, tuple)) and len(item[1]) == 3
-                for item in base
-        ):
-            raise TypeError(
-                "Callable species must return a list of (str, [float, float, float]) tuples"
-            )
-    else:
-        if isinstance(species, str):
-            base = [(species, [0.0, 0.0, 0.0])]
-        elif isinstance(species, dict):
-            base = list(species.items())
-        elif isinstance(species, list):
-            base = species
-        else:
-            raise TypeError(
-                "species must be a string, list[(atom, coord)], dict{atom: coord}, or callable"
-            )
+    # Minimal validation: ensure base is a list of valid tuples
+    if not isinstance(base, list) or not all(
+        isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str)
+        and isinstance(item[1], (list, tuple)) and len(item[1]) == 3
+        for item in base
+    ):
+        raise TypeError("molecule_fun must return a list of (str, [float, float, float]) tuples")
 
-    atoms = [str(atom) for atom, coord in base]
-    positions = [np.asarray(coord, dtype=float).tolist() for atom, coord in base]
+    atoms = [atom for atom, _ in base]
+    positions = [coord for _, coord in base]
 
     return {
-        "species": np.array(atoms, dtype=object),
+        "atoms": np.array(atoms, dtype=object),
         "pos": np.array(positions, dtype=np.float32),
     }
 
 
 def compute_ccsd(
-    species: Iterable[str] | list[tuple[str, Sequence[float]]],
-    pos: np.ndarray | None = None,
+    atoms: Iterable[str],
+    pos: np.ndarray,
     unit: str = "angstrom",
     basis: str = "sto3g",
     cartesian: bool = False,
@@ -56,24 +42,15 @@ def compute_ccsd(
     """
     Run RHF → CCSD for closed-shell molecules and return features for machine learning.
     """
-    if isinstance(species, list) and len(species) > 0 and isinstance(species[0], tuple):
-        pyscf_atoms = [(str(atom), list(map(float, coord))) for atom, coord in species]
-        if pos is not None:
-            raise ValueError(
-                "pos must be None when species is a list of (atom, coord) tuples"
-            )
-    else:
-        sp = np.asarray(species, dtype=object).reshape(-1)
-        if pos is None:
-            raise ValueError(
-                "pos must be provided when species is an iterable of symbols"
-            )
-        xyz = np.asarray(pos, dtype=float)
-        if xyz.ndim != 2 or xyz.shape[1] != 3 or xyz.shape[0] != sp.shape[0]:
-            raise ValueError(
-                f"pos must have shape (N_atoms, 3) and match species length; got {xyz.shape} vs {sp.shape[0]}"
-            )
-        pyscf_atoms = [(str(sp[i]), xyz[i].tolist()) for i in range(sp.shape[0])]
+    atoms = np.asarray(atoms, dtype=object).reshape(-1)
+    pos = np.asarray(pos, dtype=float)
+
+    if pos.ndim != 2 or pos.shape[1] != 3 or pos.shape[0] != atoms.shape[0]:
+        raise ValueError(
+            f"pos must have shape (N_atoms, 3) and match atoms length; got {pos.shape} vs {atoms.shape[0]}"
+        )
+
+    pyscf_atoms = [(str(atoms[i]), pos[i].tolist()) for i in range(atoms.shape[0])]
 
     # Set up and build molecule based on geometries
     mol = gto.Mole()
