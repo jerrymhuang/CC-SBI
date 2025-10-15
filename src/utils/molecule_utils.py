@@ -75,6 +75,7 @@ def compute_ccsd(
             )
         pyscf_atoms = [(str(sp[i]), xyz[i].tolist()) for i in range(sp.shape[0])]
 
+    # Set up and build molecule based on geometries
     mol = gto.Mole()
     mol.unit = unit
     mol.atom = pyscf_atoms
@@ -86,18 +87,18 @@ def compute_ccsd(
     num_electrons = sum(gto.charge(atom[0]) for atom in pyscf_atoms) - mol.charge
     if num_electrons % 2 != 0:
         raise ValueError("Only closed-shell molecules are supported (even number of electrons required)")
-    
-    # Force closed-shell (RHF/CCSD)
+
     mol.spin = 0  
     mol.build()
 
-    # Run RHF and CCSD
-    hartree_fock = scf.RHF(mol).run()
-    ccsd = cc.CCSD(hartree_fock).run()
+    # Run restricted Hartree-Fock (RHF) and get orbital coefficients (determinant)
+    rhf = scf.RHF(mol).run()
+    mol_coefficients = rhf.mo_coeff
+    ccsd = cc.CCSD(rhf).run()
 
     kinetic = mol.intor("int1e_kin").astype(np.float32)
-    full_nuc_potential = mol.intor("int1e_nuc").astype(np.float32)
     eri = mol.intor("int2e_sph", aosym=1).astype(np.float32)
+    full_potential = mol.intor("int1e_nuc").astype(np.float32)
     full_overlap = mol.intor("int1e_ovlp").astype(np.float32)
 
     coordinates = np.array(
@@ -108,21 +109,25 @@ def compute_ccsd(
     else:
         coordinates = coordinates.reshape(-1).astype(np.float32)
 
-    n_basis = full_nuc_potential.shape[0]
+    n_basis = full_potential.shape[0]
     tril_idx = np.tril_indices(n_basis)
-    nuc_potential = full_nuc_potential[tril_idx].astype(np.float32)
+    nuc_potential = full_potential[tril_idx].astype(np.float32)
     overlap = full_overlap[tril_idx].astype(np.float32)
 
     sim_data: dict[str, np.ndarray] = {
         "nuc_potential": nuc_potential,
         "overlap": overlap,
         "coordinates": coordinates,
+        "orbital_coefficients": mol_coefficients,
     }
 
     cc_t1_full = ccsd.t1.astype(np.float32)
     cc_t2_full = ccsd.t2.astype(np.float32)
+    energies = ccsd.e_tot.astype(np.float32)
     sim_data["t1"] = cc_t1_full.reshape(-1).astype(np.float32)
     sim_data["t2"] = cc_t2_full.reshape(-1).astype(np.float32)
+    sim_data["energies"] = energies.reshape(-1).astype(np.float32)
+
     if return_amplitudes:
         sim_data.update(
             cc_t1_full=cc_t1_full,
@@ -130,7 +135,7 @@ def compute_ccsd(
             eri=eri,
             full_overlap=full_overlap,
             kinetic=kinetic,
-            nuc_potential=full_nuc_potential,
+            nuc_potential=full_potential,
         )
 
     if return_geometries:
