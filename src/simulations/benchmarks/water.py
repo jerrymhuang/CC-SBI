@@ -55,17 +55,13 @@ def water(
 
 
 if __name__ == "__main__":
-
-    # Quick self-test: a chain of H atoms and H2 molecules
+    # Quick self-test: a single H2O molecule
     water_simulator = MoleculeSimulator(
-        species=water,
-        distance=1.0,
+        molecule_fun=water,
         basis="cc-pVTZ",
         coord_scale=0.1,
         verbose=0,
     )
 
-    water_sim = water_simulator.simulate(num_molecules=1)
-
-    print("Water (as chain):", {k: v.shape for k, v in water_sim.items()})
-    print(water_sim["coordinates"])
+    water_sim = water_simulator.simulate(molecule_kwargs={"perturb": True})
+    print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in water_sim.items()})

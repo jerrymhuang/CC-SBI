@@ -157,11 +157,11 @@ def ethene(
 if __name__ == "__main__":
     # Quick self-test: a chain of C2H4 with 3 molecules
     simulator = MoleculeSimulator(
-        species=ethene,
+        molecule_fun=ethene,
         basis="cc-pVDZ",
         coord_scale=0.1,
         cache_integrals=True,
     )
 
-    sim = simulator.simulate(num_molecules=1)
-    print("Ethene molecules:", {k: v.shape for k, v in sim.items()})
+    sim = simulator.simulate(molecule_kwargs={"perturb": True})
+    print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in sim.items()})

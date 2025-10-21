@@ -1,15 +1,15 @@
 import numpy as np
 from collections.abc import Sequence
-from utils.molecule_utils import assemble_molecules
+from utils.molecule_utils import assemble_molecule
 from simulations.molecules import MoleculeSimulator
 
 
 def hf(
-        bond_distance: float = 0.917,
-        bond_noise: float = 0.25,
-        perturb: bool = True,
-        center: Sequence[float] | None = None,
-        plane: str = "xy",
+    bond_distance: float = 0.917,
+    bond_noise: float = 0.25,
+    perturb: bool = True,
+    center: Sequence[float] | None = None,
+    plane: str = "xy",
 ) -> list[tuple[str, list[float]]]:
     """
     Return an HF molecule centered near a given center with optional perturbations.
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         print(f"HF molecule (perturbed): {hf_mol_perturbed}")
 
         # Test with assemble_molecules
-        hf_assembled = assemble_molecules(molecule_fun=hf, molecule_kwargs={"perturb": False})
+        hf_assembled = assemble_molecule(molecule_fun=hf, molecule_kwargs={"perturb": False})
         print(f"Assembled HF molecule: {hf_assembled}")
 
         # Test with MoleculeSimulator
@@ -73,11 +73,14 @@ if __name__ == "__main__":
             basis="cc-pVTZ",
             coord_scale=0.1,
             verbose=0,
-            return_amplitudes=True,
         )
+
         hf_sim = hf_simulator.simulate(molecule_kwargs={"perturb": True})
         print("HF simulation results:", {k: v.shape for k, v in hf_sim.items()})
         print("HF coordinates:", hf_sim["coordinates"])
+
+        hf_batch = hf_simulator.sample(num_samples=10, molecule_kwargs={"perturb": True})
+        print("HF simulation results:", {k: v.shape for k, v in hf_batch.items()})
 
     except ValueError as e:
         print(f"Error: {e}")
