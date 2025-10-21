@@ -1,10 +1,9 @@
 import numpy as np
-from collections.abc import Sequence, Iterable, Callable
-import pyscf
 from pyscf import gto, scf, cc
+from collections.abc import Iterable, Callable
 
 
-def assemble_molecules(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
+def assemble_molecule(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
     """
     Generate a single molecule or atom set from molecule_fun specification.
     """
@@ -28,27 +27,33 @@ def assemble_molecules(molecule_fun, molecule_kwargs: dict | None = None) -> dic
     }
 
 
-def build_pyscf_molecules(
-    atoms: np.ndarray,
-    positions: np.ndarray,
-    unit: str = "Angstrom",
-    basis: str = "sto3g",
-    cartesian: bool = True,
-    verbose: bool = False,
-    charge: int = 0
-):
-    """
-    Run RHF → CCSD for closed-shell molecules and return features for machine learning.
-    """
+def build_pyscf_atoms(atoms: np.ndarray, positions: np.ndarray):
     atoms = np.asarray(atoms, dtype=object).reshape(-1)
-    pos = np.asarray(positions, dtype=float)
+    positions = np.asarray(positions, dtype=float)
 
-    if pos.ndim != 2 or pos.shape[1] != 3 or pos.shape[0] != atoms.shape[0]:
+    if positions.ndim != 2 or positions.shape[1] != 3 or positions.shape[0] != atoms.shape[0]:
         raise ValueError(
-            f"pos must have shape (N_atoms, 3) and match atoms length; got {pos.shape} vs {atoms.shape[0]}"
+            f"pos must have shape (N_atoms, 3) and match atoms length; got {positions.shape} vs {atoms.shape[0]}"
         )
 
-    pyscf_atoms = [(str(atoms[i]), pos[i].tolist()) for i in range(atoms.shape[0])]
+    pyscf_atoms = [(str(atoms[i]), positions[i].tolist()) for i in range(atoms.shape[0])]
+
+    return pyscf_atoms
+
+
+def build_pyscf_molecule(
+    atoms: np.ndarray | None = None,
+    positions: np.ndarray | None = None,
+    pyscf_atoms: list[tuple[str, list[float]]] | None = None,
+    unit: str = "bohr",
+    basis: str = "cc-pVTZ",
+    cartesian: bool = True,
+    verbose: int = 0,
+    charge: int = 0
+):
+    # Build atoms if none provided
+    if pyscf_atoms is None:
+        pyscf_atoms = build_pyscf_atoms(atoms, positions)
 
     # Set up and build molecule based on geometries
     mol = gto.Mole()
@@ -61,7 +66,7 @@ def build_pyscf_molecules(
 
     num_electrons = sum(gto.charge(atom[0]) for atom in pyscf_atoms) - mol.charge
     if num_electrons % 2 != 0:
-        raise ValueError("Only closed-shell molecules are supported (even number of electrons required)")
+        raise ValueError("Only closed-shell molecule are supported (even number of electrons required)")
 
     mol.spin = 0
     mol.build()
@@ -69,11 +74,30 @@ def build_pyscf_molecules(
     return mol
 
 
-def compute_geometries(
-    molecule: gto.Mole,
+def compute_coordinates(
+    atoms: Iterable[str],
+    positions: np.ndarray,
     coordinate_scale: float = 1.0
 ):
-    raise NotImplementedError
+    atoms = np.asarray(atoms, dtype=object).reshape(-1)
+    positions = np.asarray(positions, dtype=float)
+
+    if positions.ndim != 2 or positions.shape[1] != 3 or positions.shape[0] != atoms.shape[0]:
+        raise ValueError(
+            f"pos must have shape (N_atoms, 3) and match atoms length; got {positions.shape} vs {atoms.shape[0]}"
+        )
+
+    pyscf_atoms = [(str(atoms[i]), positions[i].tolist()) for i in range(atoms.shape[0])]
+
+    coordinates = np.array(
+        [coordinate for _, coordinate in pyscf_atoms], dtype=np.float32
+    )
+    if coordinate_scale is not None:
+        coordinates = (coordinates.reshape(-1) * coordinate_scale).astype(np.float32)
+    else:
+        coordinates = coordinates.reshape(-1).astype(np.float32)
+
+    return coordinates
 
 
 def compute_integrals(
@@ -97,104 +121,63 @@ def compute_integrals(
         "eri": eri,
     }
 
-def compute_hartree_fock(molecules):
-    raise NotImplementedError
 
-def compute_cc():
-    raise NotImplementedError
+def compute_hartree_fock(molecule: gto.Mole):
+
+    rhf = scf.RHF(molecule).run()
+    occupancies = rhf.mo_occ
+    coefficients = rhf.mo_coeff
+
+    return {
+        "occupancies": occupancies,
+        "coefficients": coefficients
+    }
+
+
+def compute_cc(molecule: gto.Mole, flatten: bool = True):
+
+    # Hartree-Fock
+    rhf = scf.RHF(molecule).run()
+
+    # CCSD
+    ccsd = cc.CCSD(rhf).run()
+    t1 = ccsd.t1.astype(np.float32)
+    t2 = ccsd.t2.astype(np.float32)
+    energy = ccsd.e_tot.astype(np.float32)
+
+    return {
+        "t1": t1.reshape(-1) if flatten else t1,
+        "t2": t2.reshape(-1) if flatten else t2,
+        "total_energy": energy
+    }
+
 
 def compute_ccsd(
-    atoms: Iterable[str],
-    pos: np.ndarray,
-    unit: str = "angstrom",
-    basis: str = "sto3g",
+    molecule_fun: Callable,
+    molecule_kwargs: dict,
+    unit: str = "bohr",
+    basis: str = "cc-pVTZ",
     cartesian: bool = False,
-    coordinate_scale: float | None = 0.1,
     verbose: int = 0,
-    return_amplitudes: bool = True,
-    return_geometries: bool = False,
     charge: int | None = None,
 ) -> dict[str, np.ndarray]:
     """
-    Run RHF → CCSD for closed-shell molecules and return features for machine learning.
+    Run RHF → CCSD for closed-shell molecule and return features for machine learning.
     """
-    atoms = np.asarray(atoms, dtype=object).reshape(-1)
-    pos = np.asarray(pos, dtype=float)
-
-    if pos.ndim != 2 or pos.shape[1] != 3 or pos.shape[0] != atoms.shape[0]:
-        raise ValueError(
-            f"pos must have shape (N_atoms, 3) and match atoms length; got {pos.shape} vs {atoms.shape[0]}"
-        )
-
-    pyscf_atoms = [(str(atoms[i]), pos[i].tolist()) for i in range(atoms.shape[0])]
-
-    coordinates = np.array(
-        [coordinate for _, coordinate in pyscf_atoms], dtype=np.float32
+    raw_molecule = assemble_molecule(molecule_fun, molecule_kwargs)
+    pyscf_molecule = build_pyscf_molecule(
+        **raw_molecule,
+        unit=unit,
+        basis=basis,
+        cartesian=cartesian,
+        charge=charge,
+        verbose=verbose
     )
-    if coordinate_scale is not None:
-        coordinates = (coordinates.reshape(-1) * coordinate_scale).astype(np.float32)
-    else:
-        coordinates = coordinates.reshape(-1).astype(np.float32)
+        
+    integrals = compute_integrals(pyscf_molecule)
+    cc = compute_cc(pyscf_molecule)
 
-    # Set up and build molecule based on geometries
-    mol = gto.Mole()
-    mol.unit = unit
-    mol.atom = pyscf_atoms
-    mol.basis = basis
-    mol.cart = cartesian
-    mol.verbose = verbose
-    mol.charge = 0 if charge is None else int(charge)
-
-    num_electrons = sum(gto.charge(atom[0]) for atom in pyscf_atoms) - mol.charge
-    if num_electrons % 2 != 0:
-        raise ValueError("Only closed-shell molecules are supported (even number of electrons required)")
-
-    mol.spin = 0  
-    mol.build()
-
-    kinetic = mol.intor("int1e_kin").astype(np.float32)
-    eri = mol.intor("int2e_sph", aosym=1).astype(np.float32)
-    full_potential = mol.intor("int1e_nuc").astype(np.float32)
-    full_overlap = mol.intor("int1e_ovlp").astype(np.float32)
-
-    n_basis = full_potential.shape[0]
-    tril_idx = np.tril_indices(n_basis)
-    nuc_potential = full_potential[tril_idx].astype(np.float32)
-    overlap = full_overlap[tril_idx].astype(np.float32)
-
-    # Run restricted Hartree-Fock (RHF) and get orbital coefficients (determinant)
-    rhf = scf.RHF(mol).run()
-    orbital_occupancy = rhf.mo_occ
-    orbital_coefficients = rhf.mo_coeff
-    ccsd = cc.CCSD(rhf).run()
-
-    sim_data: dict[str, np.ndarray] = {
-        "nuc_potential": nuc_potential,
-        "overlap": overlap,
-        "coordinates": coordinates,
-        "orbital_coefficients": orbital_coefficients,
-        "orbital_occupancy": orbital_occupancy,
-    }
-
-    cc_t1_full = ccsd.t1.astype(np.float32)
-    cc_t2_full = ccsd.t2.astype(np.float32)
-    energies = ccsd.e_tot.astype(np.float32)
-    sim_data["t1"] = cc_t1_full.reshape(-1).astype(np.float32)
-    sim_data["t2"] = cc_t2_full.reshape(-1).astype(np.float32)
-    sim_data["energies"] = energies.reshape(-1).astype(np.float32)
-
-    if return_amplitudes:
-        sim_data.update(
-            cc_t1_full=cc_t1_full,
-            cc_t2_full=cc_t2_full,
-            eri=eri,
-            full_overlap=full_overlap,
-            kinetic=kinetic,
-            nuc_potential=full_potential,
-        )
-
-    if return_geometries:
-        # TODO: add geometric data for the molecule
-        pass
+    # Gather all data
+    sim_data = raw_molecule | integrals | cc
 
     return sim_data
