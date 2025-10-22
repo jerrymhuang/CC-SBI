@@ -112,12 +112,12 @@ def compute_integrals(
     num_basis = full_nuc_attraction.shape[0]
     tril_idx = np.tril_indices(num_basis)
     nuc_attraction = full_nuc_attraction[tril_idx].astype(np.float32)
-    overlap = full_overlap[tril_idx].astype(np.float32)
+    overlaps = full_overlap[tril_idx].astype(np.float32)
 
     return {
         "kinetic_energy": kinetic_energy,
         "nuc_attraction": full_nuc_attraction if full_matrices else nuc_attraction,
-        "overlap": overlap if full_matrices else overlap,
+        "overlaps": overlaps if full_matrices else overlaps,
         "eri": eri,
     }
 
@@ -126,11 +126,11 @@ def compute_hartree_fock(molecule: gto.Mole):
 
     rhf = scf.RHF(molecule).run()
     occupancies = rhf.mo_occ
-    coefficients = rhf.mo_coeff
+    determinant = rhf.mo_coeff
 
     return {
         "occupancies": occupancies,
-        "coefficients": coefficients
+        "determinant": determinant
     }
 
 
