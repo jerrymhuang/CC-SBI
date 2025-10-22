@@ -57,20 +57,14 @@ class MoleculeSimulator:
         | Callable
         | None = None,
         molecule_kwargs: dict | None = None,
-        include_integrals: bool = True,
-        include_hartree_fock: bool = True,
-        include_cc: bool = True,
-        include_coordinates: bool = True
+        include_integrals: bool = False,
+        include_hartree_fock: bool = False,
+        include_cc: bool = False,
+        include_coordinates: bool = False,
+        include_all: bool = True
     ) -> dict[str, np.ndarray]:
         """
         Simulate a closed-shell system and compute CCSD properties.
-
-        Args:
-            molecule_fun: Molecule specification (overrides instance molecule_fun if provided).
-            molecule_kwargs: Additional arguments for molecule_fun (overrides instance kwargs if provided).
-
-        Returns:
-            Dictionary containing CCSD properties and molecular data.
         """
         if molecule_fun is None:
             molecule_fun = self.molecule_fun
@@ -101,6 +95,12 @@ class MoleculeSimulator:
             verbose=self.verbose
         )
 
+        if include_all:
+            include_integrals = True
+            include_hartree_fock = True
+            include_cc = True
+            include_coordinates = True
+
         if include_integrals:
             integrals = compute_integrals(pyscf_molecule)
             sim_data = sim_data | integrals
@@ -128,25 +128,17 @@ class MoleculeSimulator:
         | Callable
         | None = None,
         molecule_kwargs: dict | None = None,
+        include_kwargs: dict | None = None,
         show_progress: bool = True
     ) -> dict[str, np.ndarray]:
         """
         Generate multiple CCSD samples for closed-shell molecules.
-
-        Args:
-            samples: Number of samples to generate.
-            molecule_fun: Molecule specification (overrides instance molecule_fun if provided).
-            molecule_kwargs: Additional arguments for molecule_fun.
-            show_progress: Whether to show a progress bar (default: True).
-
-        Returns:
-            Dictionary with stacked CCSD properties for all samples.
         """
         if num_samples < 1:
             raise ValueError("samples must be a positive integer")
         all_data = []
         for _ in tqdm(range(num_samples), desc="Generating samples", disable=not show_progress):
-            sample = self.simulate(molecule_fun, molecule_kwargs)
+            sample = self.simulate(molecule_fun, molecule_kwargs, **include_kwargs)
             all_data.append(sample)
 
         combined_data = {}

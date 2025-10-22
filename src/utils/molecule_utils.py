@@ -1,6 +1,7 @@
 import numpy as np
 from pyscf import gto, scf, cc
 from collections.abc import Iterable, Callable
+from .procrustes_utils import localized_procrustes_overlap
 
 
 def assemble_molecule(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
@@ -47,7 +48,7 @@ def build_pyscf_molecule(
     pyscf_atoms: list[tuple[str, list[float]]] | None = None,
     unit: str = "bohr",
     basis: str = "cc-pVTZ",
-    cartesian: bool = True,
+    cartesian: bool = False,
     verbose: int = 0,
     charge: int = 0
 ):
@@ -102,22 +103,22 @@ def compute_coordinates(
 
 def compute_integrals(
     molecule: gto.Mole,
-    full_matrices: bool = False,
+    full_matrices: bool = True,
 ):
     kinetic_energy = molecule.intor("int1e_kin").astype(np.float32)
     full_nuc_attraction = molecule.intor("int1e_nuc").astype(np.float32)
-    full_overlap = molecule.intor("int1e_ovlp").astype(np.float32)
+    full_overlaps = molecule.intor("int1e_ovlp").astype(np.float32)
     eri = molecule.intor("int2e_sph", aosym=1).astype(np.float32)
 
     num_basis = full_nuc_attraction.shape[0]
     tril_idx = np.tril_indices(num_basis)
     nuc_attraction = full_nuc_attraction[tril_idx].astype(np.float32)
-    overlaps = full_overlap[tril_idx].astype(np.float32)
+    overlaps = full_overlaps[tril_idx].astype(np.float32)
 
     return {
         "kinetic_energy": kinetic_energy,
         "nuc_attraction": full_nuc_attraction if full_matrices else nuc_attraction,
-        "overlaps": overlaps if full_matrices else overlaps,
+        "overlaps": full_overlaps if full_matrices else overlaps,
         "eri": eri,
     }
 
@@ -134,10 +135,14 @@ def compute_hartree_fock(molecule: gto.Mole):
     }
 
 
-def compute_cc(molecule: gto.Mole, flatten: bool = True):
-
+def compute_cc(
+    molecule: gto.Mole | None = None,
+    rhf: scf.RHF | None = None,
+    flatten: bool = False
+):
     # Hartree-Fock
-    rhf = scf.RHF(molecule).run()
+    if rhf is None:
+        rhf = scf.RHF(molecule).run()
 
     # CCSD
     ccsd = cc.CCSD(rhf).run()
