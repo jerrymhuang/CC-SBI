@@ -1,10 +1,13 @@
 import numpy as np
+from tqdm import tqdm
+from pyscf import gto, scf
 from scipy.linalg import sqrtm, fractional_matrix_power
 
 from utils.molecule_utils import (
     build_pyscf_molecule,
     compute_integrals,
-    compute_hartree_fock
+    compute_hartree_fock,
+    compute_cc,
 )
 
 def orthogonal_procrustes_overlap(
@@ -13,10 +16,10 @@ def orthogonal_procrustes_overlap(
     target_determinant,
     target_overlap
 ):
-    reference_determinant_sqrtm = np.real(sqrtm(reference_determinant))
+    target_overlap_sqrtm = np.real(sqrtm(target_overlap))
     reference_overlap_sqrtm = np.real(sqrtm(reference_overlap))
 
-    matrix = target_determinant.T @ reference_overlap_sqrtm @ reference_determinant_sqrtm @ target_overlap
+    matrix = target_determinant.T @ target_overlap_sqrtm @ reference_overlap_sqrtm @ reference_determinant
 
     U, S, V = np.linalg.svd(matrix)
     return U @ V
@@ -59,9 +62,13 @@ def localized_procrustes_overlap(
         mo_unocc = mo_unocc @ R2
         target_determinant_new[:, unoccupied_active_orbitals] = mo_unocc
 
+
         # Construct block-diagonal matrix
-        orthogonal_overlap = np.block([[R1, np.zeros((R1.shape[0], R2.shape[1]))],
-                      [np.zeros((R2.shape[0], R1.shape[1])), R2]])
+        orthogonal_overlap = np.block([
+            [R1, np.zeros((R1.shape[0], R2.shape[0]))],
+            [np.zeros((R2.shape[0], R1.shape[0])), R2]
+        ])
+
     else:
         # Align all active orbitals together
         mo = target_determinant[:, active_orbitals]
@@ -75,41 +82,95 @@ def localized_procrustes_overlap(
         "orthogonal_overlap": orthogonal_overlap
     }
 
-
 def compute_procrustes_matrices(
-    pyscf_atoms_group,
-    basis,
+    batched_atoms,
+    batched_positions,
     reference_determinant,
     reference_overlap
 ):
     rotation_matrices = []
     procrustes_orbitals = []
-    for atoms in pyscf_atoms_group:
+
+    for atoms, positions in tqdm(
+        zip(batched_atoms, batched_positions),
+        desc="Computing procrustes",
+        total=batched_atoms.shape[0]
+    ):
         # Build molecules
-        molecule = build_pyscf_molecule(atoms=atoms)
+        molecule = build_pyscf_molecule(atoms=atoms, positions=positions)
         
-        # Compute integrals
-        integrals = compute_integrals(molecule)
-        overlaps = integrals["overlaps"]
+        # For integral, we only need overlap here
+        overlaps = molecule.intor("int1e_ovlp").astype(np.float32)
         
         # Compute RHF
         rhf = compute_hartree_fock(molecule)
         determinant = rhf["determinant"]
         occupancies = rhf["occupancies"]
         
-        procrustes_orbital = localized_procrustes_overlap(
+        procrustes_overlap = localized_procrustes_overlap(
             target_determinant=determinant,
-            target_occupancies=occupancies,
             target_overlap=overlaps,
             reference_determinant=reference_determinant,
             reference_overlap=reference_overlap,
+            occupancies=occupancies,
         )
+
+        procrustes_orbital = procrustes_overlap["target_determinant"]
 
         rotation_matrix = np.real(fractional_matrix_power(overlaps,0.5)) @ procrustes_orbital
         rotation_matrices.append(rotation_matrix)
         procrustes_orbitals.append(procrustes_orbital)
 
     return {
-        "rotation_matrices": rotation_matrices,
-        "procrustes_orbitals": procrustes_orbitals
+        "rotation_matrices": np.array(rotation_matrices),
+        "procrustes_orbitals": np.array(procrustes_orbitals)
+    }
+
+def compute_cc_with_procrustes(
+    batched_atoms,
+    batched_positions,
+    reference_determinant: np.ndarray,
+    reference_overlap: np.ndarray,
+    mix_states: bool = False
+):
+    t1s = []
+    t2s = []
+    energies = []
+
+    for atoms, positions in tqdm(
+        zip(batched_atoms, batched_positions),
+        desc="Computing CCSD",
+        total=batched_atoms.shape[0]
+    ):
+        # Build molecules
+        molecule = build_pyscf_molecule(atoms=atoms, positions=positions)
+
+        # For integral, we only need overlap here
+        overlaps = molecule.intor("int1e_ovlp").astype(np.float32)
+
+        # Run Hartree-Fock
+        rhf = compute_hartree_fock(molecule)
+
+        procrustes_overlap = localized_procrustes_overlap(
+            reference_determinant=reference_determinant,
+            reference_overlap=reference_overlap,
+            target_determinant=rhf["determinant"],
+            target_overlap=overlaps,
+            occupancies=rhf["occupancies"],
+            mix_states=mix_states,
+        )
+
+        # Update RHF determinant
+        rhf["determinant"] = procrustes_overlap["target_determinant"]
+
+        # Run CC with the updated RHF
+        cc = compute_cc(molecule=molecule)
+        t1s.append(cc["t1"])
+        t2s.append(cc["t2"])
+        energies.append(cc["total_energy"])
+
+    return {
+        "t1": np.array(t1s),
+        "t2": np.array(t2s),
+        "energies": np.array(energies),
     }
