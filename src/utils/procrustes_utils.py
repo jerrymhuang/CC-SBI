@@ -1,11 +1,9 @@
 import numpy as np
 from tqdm import tqdm
-from pyscf import gto, scf
 from scipy.linalg import sqrtm, fractional_matrix_power
 
 from utils.molecule_utils import (
     build_pyscf_molecule,
-    compute_integrals,
     compute_hartree_fock,
     compute_cc,
 )
