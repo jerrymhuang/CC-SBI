@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm import tqdm
+from pyscf import ao2mo
 from scipy.linalg import sqrtm, fractional_matrix_power
 
 from utils.molecule_utils import (
@@ -21,7 +22,6 @@ def orthogonal_procrustes_overlap(
 
     U, S, V = np.linalg.svd(matrix)
     return U @ V
-
 
 def localized_procrustes_overlap(
     reference_determinant,
@@ -80,6 +80,48 @@ def localized_procrustes_overlap(
         "orthogonal_overlap": orthogonal_overlap
     }
 
+def compute_reference_hartree_fock(
+    molecule,
+    reference_determinant,
+    reference_overlap,
+    reference_state = None,
+    mix_states = False
+):
+    target_overlap = molecule.intor("int1e_ovlp")
+    rhf = compute_hartree_fock(molecule=molecule)
+
+    if reference_state is not None:
+        canonical_orbital = localized_procrustes_overlap(
+            reference_determinant=reference_determinant,
+            reference_overlap=reference_overlap,
+            target_determinant=rhf["determinant"],
+            target_overlap=target_overlap,
+            occupancies=rhf["occupancies"],
+            mix_states=mix_states
+        )
+    else:
+        canonical_orbital = rhf["determinant"]
+
+    num_orbitals = canonical_orbital.shape[1]
+    mol_core_hamiltonian = canonical_orbital.T @ rhf.get_hcore() @ canonical_orbital
+    mol_overlap_matrix = canonical_orbital.T @ target_overlap @ canonical_orbital
+
+    u = ao2mo.kernel(molecule, canonical_orbital).reshape(num_orbitals, num_orbitals, num_orbitals, num_orbitals)
+    fock_matrix = rhf.get_fock(mol_core_hamiltonian, u)
+    num_electrons = molecule.nelectron // 2
+
+    occupied_orbitals = slice(0, num_electrons)
+    virtual_orbitals = slice(num_electrons, num_orbitals)
+
+    return {
+        "canonical_orbital": canonical_orbital,
+        "core_hamiltonian": mol_core_hamiltonian,
+        "overlap_matrix": mol_overlap_matrix,
+        "fock_matrix": fock_matrix,
+        "occupied_orbitals": occupied_orbitals,
+        "virtual_orbitals": virtual_orbitals,
+    }
+
 def compute_procrustes_matrices(
     batched_atoms,
     batched_positions,
@@ -123,6 +165,8 @@ def compute_procrustes_matrices(
         "rotation_matrices": np.array(rotation_matrices),
         "procrustes_orbitals": np.array(procrustes_orbitals)
     }
+
+
 
 def compute_cc_with_procrustes(
     batched_atoms,

@@ -1,5 +1,5 @@
 import numpy as np
-from pyscf import gto, scf, cc
+from pyscf import gto, scf, cc, ao2mo
 from collections.abc import Iterable, Callable
 from .procrustes_utils import localized_procrustes_overlap
 
