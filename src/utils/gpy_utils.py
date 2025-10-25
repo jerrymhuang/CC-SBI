@@ -3,6 +3,7 @@ import GPy
 
 from paramz.transformations import Logistic
 
+from .matrix_utils import orthonormalize_ts
 
 def _flatten_list(list_U):
     return np.asarray([np.ravel(U) for U in list_U], dtype=float)
@@ -118,3 +119,47 @@ def get_model_gpy(U_list, y, kernel, U_list_target, start_params=[-2, 0]):
     return mu, np.diag(Sigma2), np.exp(best_sigma)
 
 
+if __name__ == '__main__':
+    # Mocking the simulation, for now
+    batch_size = 49
+    num_virtual_orbitals = 53
+    num_occupied_orbitals = 5
+    t1s = np.zeros((batch_size, num_virtual_orbitals, num_occupied_orbitals))
+    t2s = np.zeros((batch_size, num_virtual_orbitals, num_virtual_orbitals, num_occupied_orbitals, num_occupied_orbitals))
+    energies = np.zeros(batch_size)
+
+    orth_ts = orthonormalize_ts(t1s, t2s)
+
+    t1_ml = []
+    t2_ml = []
+    params_ml = []  # This used to be ml_params
+    predictions = []
+    stds_gpy = np.zeros(6561)   # target geometries
+
+    for i in range(len(25)):
+        mean, std, params = get_model_gpy(
+            U_list=sample_u,
+            U_list_target=target_u,
+            kernel=RBF_kernel,
+            y=t_coeffs[i] - np.mean(t_coeffs[i])
+        )
+        predictions.append(mean + np.mean(t_coeffs[i]))
+        stds_gpy += (std)
+        params_ml.append(params)
+
+    means = np.array(predictions)
+    means.shape
+
+    for i in range(len(target_geometries)):
+        t1_temp = np.zeros_like(t1s[0])
+        t2_temp = np.zeros_like(t2s[0])
+
+        for j in range(len(t_coeffs)):
+            # This value has to be real
+            t1_temp += means[j, i] * np.real(t1s_orth[j])
+            t2_temp += means[j, i] * np.real(t2s_orth[j])
+
+        t1_ml.append(t1_temp)
+        t2_ml.append(t2_temp)
+
+    # evc.solve_from_initial_guess() follows...
