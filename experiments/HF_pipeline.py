@@ -18,7 +18,7 @@ from utils.dataset_utils import generate_dataset, verify_dataset, load_npz_dict
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 def parse_args():
-    """Parse command-line arguments for the H2O training pipeline.
+    """Parse command-line arguments for the HF training pipeline.
 
     Returns
     -------
@@ -56,7 +56,7 @@ def main():
 
     # Define simulator
     simulator = MoleculeSimulator(
-        species=hf,
+        molecule_fun=hf,
         basis="{args.basis}",
         coord_scale=0.1
     )

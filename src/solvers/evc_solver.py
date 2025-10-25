@@ -107,7 +107,7 @@ class EVCSolver:
         """
         rhf_energies = []
         ccsd_energies = []
-        self.num_iterations = []
+        num_iterations = []
 
         # Default to first amplitude set if no indices provided
         if start_guess_indices is None:
@@ -153,10 +153,10 @@ class EVCSolver:
             ccsd.t1, ccsd.t2 = t1_new, t2_new
             ccsd.run()
             ccsd_energies.append(ccsd.e_tot)
-            self.num_iterations.append(ccsd.niter)
+            num_iterations.append(ccsd.niter)
 
         return {
             "rhf_energies": rhf_energies,
             "ccsd_energies": ccsd_energies,
-            "num_iterations": self.num_iterations
+            "num_iterations": num_iterations
         }

@@ -1,7 +1,6 @@
 import numpy as np
 from pyscf import gto, scf, cc, ao2mo
 from collections.abc import Iterable, Callable
-from .procrustes_utils import localized_procrustes_overlap
 
 
 def assemble_molecule(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
@@ -137,7 +136,7 @@ def compute_hartree_fock(molecule: gto.Mole):
 
 def compute_cc(
     molecule: gto.Mole | None = None,
-    rhf: scf.RHF | None = None,
+    rhf = None,
     flatten: bool = False
 ):
     # Hartree-Fock
