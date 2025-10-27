@@ -127,10 +127,12 @@ def compute_hartree_fock(molecule: gto.Mole):
     rhf = scf.RHF(molecule).run()
     occupancies = rhf.mo_occ
     determinant = rhf.mo_coeff
+    hf_energy = rhf.e_tot
 
     return {
         "occupancies": occupancies,
-        "determinant": determinant
+        "determinant": determinant,
+        "hf_energy": hf_energy,
     }
 
 
@@ -147,12 +149,12 @@ def compute_cc(
     ccsd = cc.CCSD(rhf).run()
     t1 = ccsd.t1.astype(np.float32)
     t2 = ccsd.t2.astype(np.float32)
-    energy = ccsd.e_tot.astype(np.float32)
+    ccsd_energy = ccsd.e_tot.astype(np.float32)
 
     return {
         "t1": t1.reshape(-1) if flatten else t1,
         "t2": t2.reshape(-1) if flatten else t2,
-        "total_energy": energy
+        "ccsd_energy": ccsd_energy
     }
 
 

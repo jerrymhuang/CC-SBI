@@ -31,22 +31,21 @@ class EVCSolver:
     def __init__(
         self,
         all_x,
-        molecule_func,
-        basis,
-        reference_determinant,
-        t1s,
-        t2s,
+        molecule_fun,
+        reference_determinant: np.ndarray,
+        t1s: np.ndarray,
+        t2s: np.ndarray,
+        basis: str = "cc-pVTZ",
         reference_overlap=None,
-        mix_states=False
+        mix_states: bool = False
     ):
         self.all_x = all_x
-        self.molecule_func = molecule_func
+        self.molecule_fun = molecule_fun
         self.basis = basis
-        self.reference_determinant = np.array(reference_determinant, dtype=np.float32)
-        self.t1s = [np.array(t1, dtype=np.float32) for t1 in t1s]
-        self.t2s = [np.array(t2, dtype=np.float32) for t2 in t2s]
-        self.reference_overlap = (np.array(reference_overlap, dtype=np.float32)
-                                  if reference_overlap is not None else None)
+        self.reference_determinant = reference_determinant
+        self.t1s = t1s
+        self.t2s = t2s
+        self.reference_overlap = reference_overlap
         self.mix_states = mix_states
         self.num_iterations = []
     
@@ -116,7 +115,7 @@ class EVCSolver:
         for k, (x_alpha, guess_idx) in enumerate(zip(self.all_x, start_guess_indices)):
             # Build molecule
             molecule = build_pyscf_molecule(
-                pyscf_atoms=self.molecule_func(*x_alpha),
+                pyscf_atoms=self.molecule_fun(*x_alpha),
                 basis=self.basis,
                 unit="bohr",
                 cartesian=False,
