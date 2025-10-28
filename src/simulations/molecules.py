@@ -1,7 +1,7 @@
 import numpy as np
 from collections.abc import Sequence, Callable
 from utils.molecule_utils import (
-    assemble_molecule,
+    build_molecule_geometries,
     build_pyscf_molecule,
     compute_integrals,
     compute_hartree_fock,
@@ -77,17 +77,18 @@ class MoleculeSimulator:
             molecule_kwargs = molecule_kwargs or {}
 
         # Assemble molecule using updated utility function
-        raw_molecule = assemble_molecule(
+        geometries = build_molecule_geometries(
             molecule_fun=molecule_fun,
             molecule_kwargs=molecule_kwargs,
         )
 
         # Initialize sim data
-        sim_data = raw_molecule
+        sim_data = geometries
 
         # Build PySCF molecule
         pyscf_molecule = build_pyscf_molecule(
-            **raw_molecule,
+            atoms=geometries["atoms"],
+            positions=geometries["positions"],
             unit=self.unit,
             basis=self.basis,
             cartesian=self.cartesian,
@@ -114,7 +115,7 @@ class MoleculeSimulator:
             sim_data = sim_data | cc
 
         if include_coordinates:
-            coordinates = compute_coordinates(**raw_molecule, coordinate_scale=self.coord_scale)
+            coordinates = compute_coordinates(**geometries, coordinate_scale=self.coord_scale)
             sim_data = sim_data | {"coordinates": coordinates}
 
         return sim_data
@@ -122,12 +123,6 @@ class MoleculeSimulator:
     def sample(
         self,
         num_samples: int,
-        molecule_fun: str
-        | list[tuple[str, Sequence[float]]]
-        | dict[str, Sequence[float]]
-        | Callable
-        | None = None,
-        molecule_kwargs: dict | None = None,
         include_kwargs: dict | None = None,
         show_progress: bool = True
     ) -> dict[str, np.ndarray]:
@@ -138,7 +133,7 @@ class MoleculeSimulator:
             raise ValueError("samples must be a positive integer")
         all_data = []
         for _ in tqdm(range(num_samples), desc="Generating samples", disable=not show_progress):
-            sample = self.simulate(molecule_fun, molecule_kwargs, **include_kwargs)
+            sample = self.simulate(self.molecule_fun, self.molecule_kwargs, **include_kwargs)
             all_data.append(sample)
 
         combined_data = {}
@@ -151,7 +146,7 @@ class MoleculeSimulator:
     def _cache_base_integrals(self):
         """Cache integrals for the base closed-shell molecule."""
         # Assemble base molecule
-        base_molecule = assemble_molecule(
+        base_molecule = build_molecule_geometries(
             molecule_fun=self.molecule_fun,
             molecule_kwargs=self.molecule_kwargs,
         )

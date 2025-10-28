@@ -3,7 +3,7 @@ from pyscf import gto, scf, cc, ao2mo
 from collections.abc import Iterable, Callable
 
 
-def assemble_molecule(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
+def build_molecule_geometries(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
     """
     Generate a single molecule or atom set from molecule_fun specification.
     """
@@ -62,7 +62,7 @@ def build_pyscf_molecule(
     mol.basis = basis
     mol.cart = cartesian
     mol.verbose = verbose
-    mol.charge = 0 if charge is None else int(charge)
+    mol.charge = charge
 
     num_electrons = sum(gto.charge(atom[0]) for atom in pyscf_atoms) - mol.charge
     if num_electrons % 2 != 0:
@@ -103,6 +103,7 @@ def compute_coordinates(
 def compute_integrals(
     molecule: gto.Mole,
     full_matrices: bool = True,
+    include_extra: bool = False,
 ):
     kinetic_energy = molecule.intor("int1e_kin").astype(np.float32)
     full_nuc_attraction = molecule.intor("int1e_nuc").astype(np.float32)
@@ -114,9 +115,19 @@ def compute_integrals(
     nuc_attraction = full_nuc_attraction[tril_idx].astype(np.float32)
     overlaps = full_overlaps[tril_idx].astype(np.float32)
 
+    integrals = {
+        "nuc_attraction": full_nuc_attraction if full_matrices else nuc_attraction,  # This used to be nuc_potential
+        "overlaps": full_overlaps if full_matrices else overlaps,
+    }
+
+    extras = {
+        "kinetic_energy": kinetic_energy,
+        "eri": eri,
+    }
+
     return {
         "kinetic_energy": kinetic_energy,
-        "nuc_attraction": full_nuc_attraction if full_matrices else nuc_attraction,
+        "nuc_attraction": full_nuc_attraction if full_matrices else nuc_attraction, # This used to be nuc_potential
         "overlaps": full_overlaps if full_matrices else overlaps,
         "eri": eri,
     }
@@ -170,9 +181,9 @@ def compute_ccsd(
     """
     Run RHF → CCSD for closed-shell molecule and return features for machine learning.
     """
-    raw_molecule = assemble_molecule(molecule_fun, molecule_kwargs)
+    geometries = build_molecule_geometries(molecule_fun, molecule_kwargs)
     pyscf_molecule = build_pyscf_molecule(
-        **raw_molecule,
+        **geometries,
         unit=unit,
         basis=basis,
         cartesian=cartesian,
@@ -184,6 +195,6 @@ def compute_ccsd(
     cc = compute_cc(pyscf_molecule)
 
     # Gather all data
-    sim_data = raw_molecule | integrals | cc
+    sim_data = geometries | integrals | cc
 
     return sim_data
