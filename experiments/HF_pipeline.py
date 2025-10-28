@@ -26,15 +26,15 @@ def parse_args():
         Parsed command-line arguments with training parameters.
     """
     parser = argparse.ArgumentParser(description="HF training pipeline for BayesFlow")
-    parser.add_argument("--train-samples", type=int, default=10000, help="Number of training samples")
-    parser.add_argument("--val-samples", type=int, default=500, help="Number of validation samples")
+    parser.add_argument("--train-samples", type=int, default=10, help="Number of training samples")
+    parser.add_argument("--val-samples", type=int, default=2, help="Number of validation samples")
     parser.add_argument("--num-molecules", type=int, default=1, help="Number of molecules per simulation")
     parser.add_argument("--out-dir", type=str, default="data", help="Output directory for datasets")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Checkpoint directory for model")
     parser.add_argument("--figures-dir", type=str, default="figures", help="Output directory for diagnostic figures")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training")
-    parser.add_argument("--basis", type=str, default="{args.basis}", help="Basis fucntion for simulation")
+    parser.add_argument("--basis", type=str, default="cc-pVTZ", help="Basis fucntion for simulation")
     return parser.parse_args()
 
 def main():
@@ -54,19 +54,21 @@ def main():
     checkpoint_dir.mkdir(exist_ok=True)
     figures_dir.mkdir(exist_ok=True)
 
+
     # Define simulator
     simulator = MoleculeSimulator(
         molecule_fun=hf,
-        basis="{args.basis}",
-        coord_scale=0.1
+        basis=args.basis,
+        coord_scale=0.1,
     )
 
     # Define adapter
     adapter = (
         bf.adapters.Adapter()
+        .drop(["atoms", "kinetic_energy", "occupancies", "determinant", "hf_energy"])
         .convert_dtype("float64", "float32")
         .concatenate(
-            ["overlap", "nuc_potential"],
+            ["overlaps", "nuc_attraction"],
             into="inference_conditions"
         )
         .concatenate(["t1"], into="inference_variables")
@@ -83,21 +85,37 @@ def main():
         checkpoint_filepath=checkpoint_dir / "hf_diffusion.ckpt",
     )
 
+    include_kwargs = {
+        "include_all": False,
+        "include_integrals": True,
+        "include_hartree_fock": True,
+        "include_cc": True,
+        "include_coordinates": False
+    }
+
     # Generate and verify datasets, train, and visualize diagnostics
     try:
         train_set = generate_dataset(
-            simulator, args.train_samples, args.num_molecules, out_dir / f"hf_{args.num_molecules}_{args.basis}_train.npz"
+            simulator=simulator,
+            batch_size=args.train_samples,
+            num_molecules=args.num_molecules,
+            include_kwargs=include_kwargs,
+            out_path=out_dir / f"hf_{args.num_molecules}_{args.basis}_train.npz"
         )
         val_set = generate_dataset(
-            simulator, args.val_samples, args.num_molecules, out_dir / f"hf_{args.num_molecules}_{args.basis}_val.npz"
+            simulator=simulator,
+            batch_size=args.val_samples,
+            num_molecules=args.num_molecules,
+            include_kwargs=include_kwargs,
+            out_path=out_dir / f"hf_{args.num_molecules}_{args.basis}_val.npz"
         )
         logging.info("Verifying dataset structure...")
         train_data = load_npz_dict(out_dir / f"hf_{args.num_molecules}_{args.basis}_train.npz")
         verify_dataset(train_data)
 
         # Check batch size
-        if train_data["nuc_potential"].shape[0] != args.train_samples:
-            logging.warning(f"Expected {args.train_samples} train samples, got {train_data['nuc_potential'].shape[0]}")
+        if train_data["nuc_attraction"].shape[0] != args.train_samples:
+            logging.warning(f"Expected {args.train_samples} train samples, got {train_data['nuc_attraction'].shape[0]}")
 
         # Train offline
         logging.info("Starting offline training...")
