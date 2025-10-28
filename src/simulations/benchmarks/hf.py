@@ -1,6 +1,6 @@
 import numpy as np
 from collections.abc import Sequence
-from utils.molecule_utils import assemble_molecule
+from utils.molecule_utils import build_molecule_geometries
 from simulations.molecules import MoleculeSimulator
 
 
@@ -56,31 +56,31 @@ def hf(
 if __name__ == "__main__":
     # Test the hf function
     try:
-        hf_mol = hf(perturb=False)
-        print(f"HF molecule (no perturbation): {hf_mol}")
-
-        # Test with perturbation
-        hf_mol_perturbed = hf(perturb=True, bond_noise=0.1)
-        print(f"HF molecule (perturbed): {hf_mol_perturbed}")
-
-        # Test with assemble_molecules
-        hf_assembled = assemble_molecule(molecule_fun=hf, molecule_kwargs={"perturb": False})
-        print(f"Assembled HF molecule: {hf_assembled}")
+        # hf_mol = hf(perturb=False)
+        # print(f"HF molecule (no perturbation): {hf_mol}")
+        #
+        # # Test with perturbation
+        # hf_mol_perturbed = hf(perturb=True, bond_noise=0.1)
+        # print(f"HF molecule (perturbed): {hf_mol_perturbed}")
+        #
+        # # Test with build_molecule_geometriess
+        # hf_assembled = build_molecule_geometries(molecule_fun=hf, molecule_kwargs={"perturb": False})
+        # print(f"Assembled HF molecule: {hf_assembled}")
 
         # Test with MoleculeSimulator
         hf_simulator = MoleculeSimulator(
             molecule_fun=hf,
-            basis="cc-pVTZ",
+            basis="sto-3g",
             coord_scale=0.1,
             verbose=0,
         )
 
-        hf_sim = hf_simulator.simulate(molecule_kwargs={"perturb": True})
-        print("HF simulation results:", {k: v.shape for k, v in hf_sim.items()})
-        print("HF coordinates:", hf_sim["coordinates"])
+        # hf_sim = hf_simulator.simulate(molecule_kwargs={"perturb": True})
+        # print("HF simulation results:", {k: v.shape for k, v in hf_sim.items()})
+        # print("HF coordinates:", hf_sim["coordinates"])
 
-        hf_batch = hf_simulator.sample(num_samples=10, molecule_kwargs={"perturb": True})
-        print("HF simulation results:", {k: v.shape for k, v in hf_batch.items()})
+        hf_batch = hf_simulator.sample(num_samples=2, include_kwargs={"include_integrals": True, "include_cc": True})
+        print("HF simulation results:", {k: v for k, v in hf_batch.items()})
 
     except ValueError as e:
         print(f"Error: {e}")
