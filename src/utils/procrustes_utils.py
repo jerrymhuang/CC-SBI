@@ -209,10 +209,10 @@ def compute_cc_with_procrustes(
         cc = compute_cc(molecule=molecule)
         t1s.append(cc["t1"])
         t2s.append(cc["t2"])
-        energies.append(cc["total_energy"])
+        energies.append(cc["ccsd_energy"])
 
     return {
         "t1": np.array(t1s),
         "t2": np.array(t2s),
-        "energies": np.array(energies),
+        "ccsd_energy": np.array(energies),
     }

@@ -52,57 +52,37 @@ def generate_dataset(
     simulator: MoleculeSimulator,
     batch_size: int,
     num_molecules: int,
+    include_kwargs: dict,
     out_path: Union[str, Path],
     show_progress: bool = True
 ) -> Dict[str, np.ndarray]:
-    """Generate or load a dataset of molecular simulations.
-
-    If a dataset exists at `out_path` with the correct batch size, it is loaded.
-    Otherwise, a new dataset is generated using the simulator and saved.
-
-    Parameters
-    ----------
-    simulator : MoleculeSimulator
-        Simulator for generating molecular data.
-    adapter : bayesflow.adapters.Adapter
-        Adapter for transforming simulation outputs (unused in this version).
-    batch_size : int
-        Number of samples to generate or load.
-    num_molecules : int
-        Number of molecules per simulation.
-    out_path : Union[str, Path]
-        Path to save or load the dataset.
-
-    Returns
-    -------
-    Dict[str, np.ndarray]
-        Dataset with keys like 'nuc_potential', 'overlap', 'coordinates', 't1'.
-
-    Raises
-    ------
-    FileNotFoundError
-        If saving the dataset fails due to invalid path.
-    ValueError
-        If the loaded dataset has incorrect batch size or missing keys.
+    """
+    Generate or load a dataset of molecular simulations.
     """
     out_path = Path(out_path)
     if out_path.exists():
         logging.info(f"Found existing dataset at {out_path}")
         try:
             data = load_npz_dict(out_path)
-            if data["nuc_potential"].shape[0] == batch_size:
+            if data["nuc_attraction"].shape[0] == batch_size:
                 logging.info(f"Loaded dataset with {batch_size} samples")
                 logging.info(f"Dataset keys: {list(data.keys())}")
                 logging.info(f"Dataset shapes: {[(k, data[k].shape) for k in data.keys()]}")
                 return data
             else:
-                logging.warning(f"Existing dataset has {data['nuc_potential'].shape[0]} samples, expected {batch_size}. Regenerating...")
+                logging.warning(
+                    f"Existing dataset has {data['nuc_attraction'].shape[0]} samples, expected {batch_size}. Regenerating..."
+                )
         except Exception as e:
             logging.warning(f"Failed to load dataset: {e}. Regenerating...")
 
     logging.info(f"Generating dataset ({batch_size} samples, {num_molecules} molecules)...")
     try:
-        data = simulator.sample(samples=batch_size, num_molecules=num_molecules, show_progress=show_progress)
+        data = simulator.sample(
+            num_samples=batch_size,
+            include_kwargs=include_kwargs,
+            show_progress=show_progress
+        )
         logging.info(f"Dataset keys: {list(data.keys())}")
         logging.info(f"Dataset shapes: {[(k, data[k].shape) for k in data.keys()]}")
         save_npz_dict(data, out_path)
@@ -114,7 +94,7 @@ def generate_dataset(
 
 def verify_dataset(
     data: Dict[str, np.ndarray],
-    expected_keys: Sequence[str] = ["nuc_potential", "overlap", "coordinates", "t1"]
+    expected_keys: list[str] = ["nuc_attraction", "overlaps", "coordinates", "t1"]
 ) -> None:
     """Verify dataset structure and shapes.
 
