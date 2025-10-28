@@ -30,17 +30,15 @@ class EVCSolver:
 
     def __init__(
         self,
-        all_x,
-        molecule_fun,
-        reference_determinant: np.ndarray,
+        geometries,
         t1s: np.ndarray,
         t2s: np.ndarray,
-        basis: str = "cc-pVTZ",
+        reference_determinant: np.ndarray = None,
         reference_overlap=None,
+        basis: str = "cc-pVTZ",
         mix_states: bool = False
     ):
-        self.all_x = all_x
-        self.molecule_fun = molecule_fun
+        self.geometries = geometries
         self.basis = basis
         self.reference_determinant = reference_determinant
         self.t1s = t1s
@@ -87,35 +85,23 @@ class EVCSolver:
         )
         return new_t1, new_t2
 
-    def solve_with_initial_guess(self, tolerance=1e-8, start_guess_indices=None):
+    def solve_with_initial_guess(self, tolerance=1e-8):
         """
         Solve CCSD equations for each geometry using a starting guess for amplitudes.
-
-        Parameters
-        ----------
-        tolerance : float, optional
-            Convergence tolerance for CCSD (default: 1e-8).
-        start_guess_indices : list of int, optional
-            Indices of t1s/t2s to use as starting guesses for each geometry.
-            If None, uses the first set of amplitudes for all geometries.
-
-        Returns
-        -------
-        tuple
-            Lists of HF energies, CCSD energies, and number of iterations per geometry.
         """
         rhf_energies = []
         ccsd_energies = []
         num_iterations = []
 
-        # Default to first amplitude set if no indices provided
-        if start_guess_indices is None:
-            start_guess_indices = [0] * len(self.all_x)
+        num_molecules = self.geometries["atoms"].shape[0]
 
-        for k, (x_alpha, guess_idx) in enumerate(zip(self.all_x, start_guess_indices)):
+        for i in range(num_molecules):
+            atoms = self.geometries["atoms"][i]
+            positions = self.geometries["positions"][i]
             # Build molecule
             molecule = build_pyscf_molecule(
-                pyscf_atoms=self.molecule_fun(*x_alpha),
+                atoms=atoms,
+                positions=positions,
                 basis=self.basis,
                 unit="bohr",
                 cartesian=False,
@@ -143,7 +129,7 @@ class EVCSolver:
             u = procrustes_data["orthogonal_overlap"]
 
             # Transform starting guess amplitudes
-            t1_guess, t2_guess = self.t1s[guess_idx], self.t2s[guess_idx]
+            t1_guess, t2_guess = self.t1s[i], self.t2s[i]
             t1_new, t2_new = self.basis_change_cluster_operator(u, t1_guess, t2_guess)
 
             # Run CCSD with transformed amplitudes as initial guess
