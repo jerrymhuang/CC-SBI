@@ -57,11 +57,13 @@ class MoleculeSimulator:
         | Callable
         | None = None,
         molecule_kwargs: dict | None = None,
+        include_geometries: bool = False,
         include_integrals: bool = False,
         include_hartree_fock: bool = False,
         include_cc: bool = False,
         include_coordinates: bool = False,
-        include_all: bool = True
+        include_all: bool = True,
+        pick: list[str] | None = None,
     ) -> dict[str, np.ndarray]:
         """
         Simulate a closed-shell system and compute CCSD properties.
@@ -76,14 +78,13 @@ class MoleculeSimulator:
                 )
             molecule_kwargs = molecule_kwargs or {}
 
+        sim_data = {}
+
         # Assemble molecule using updated utility function
         geometries = build_molecule_geometries(
             molecule_fun=molecule_fun,
             molecule_kwargs=molecule_kwargs,
         )
-
-        # Initialize sim data
-        sim_data = geometries
 
         # Build PySCF molecule
         pyscf_molecule = build_pyscf_molecule(
@@ -101,6 +102,11 @@ class MoleculeSimulator:
             include_hartree_fock = True
             include_cc = True
             include_coordinates = True
+            include_geometries = True
+
+        # Initialize sim data
+        if include_geometries:
+            sim_data = sim_data | geometries
 
         if include_integrals:
             integrals = compute_integrals(pyscf_molecule)

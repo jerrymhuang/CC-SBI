@@ -71,7 +71,7 @@ def main():
             ["overlaps", "nuc_attraction"],
             into="inference_conditions"
         )
-        .concatenate(["t1"], into="inference_variables")
+        .concatenate(["t1", "t2"], into="inference_variables")
     )
 
     # Define networks
@@ -87,8 +87,9 @@ def main():
 
     include_kwargs = {
         "include_all": False,
+        "include_geometries": False,
         "include_integrals": True,
-        "include_hartree_fock": True,
+        "include_hartree_fock": False,
         "include_cc": True,
         "include_coordinates": False
     }

@@ -216,3 +216,8 @@ def compute_cc_with_procrustes(
         "t2": np.array(t2s),
         "ccsd_energy": np.array(energies),
     }
+
+def compute_procrustes(reference_orbital, reference_overlap, target_orbital, target_overlap):
+    reference_overlap_sqrt = sqrtm(reference_overlap)
+    target_overlap_sqrt = sqrtm(target_overlap)
+

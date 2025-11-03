@@ -125,12 +125,10 @@ def compute_integrals(
         "eri": eri,
     }
 
-    return {
-        "kinetic_energy": kinetic_energy,
-        "nuc_attraction": full_nuc_attraction if full_matrices else nuc_attraction, # This used to be nuc_potential
-        "overlaps": full_overlaps if full_matrices else overlaps,
-        "eri": eri,
-    }
+    if include_extra:
+        integrals = integrals | extras
+
+    return integrals
 
 
 def compute_hartree_fock(molecule: gto.Mole):
