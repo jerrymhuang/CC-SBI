@@ -15,12 +15,18 @@ def orthogonal_procrustes_overlap(
     target_determinant,
     target_overlap
 ):
+    """
+    Computes the procrustes overlap between reference and target orbitals.
+    This operation is essentially a rotation of the target orbital relative to the reference.
+    """
+    # Compute the square root matrix for target and reference overlap
     target_overlap_sqrtm = np.real(sqrtm(target_overlap))
     reference_overlap_sqrtm = np.real(sqrtm(reference_overlap))
 
-    matrix = target_determinant.T @ target_overlap_sqrtm @ reference_overlap_sqrtm @ reference_determinant
+    procrustes_matrix = target_determinant.T @ target_overlap_sqrtm @ reference_overlap_sqrtm @ reference_determinant
+    # Return the results from SVD
+    U, S, V = np.linalg.svd(procrustes_matrix)
 
-    U, S, V = np.linalg.svd(matrix)
     return U @ V
 
 def localized_procrustes_overlap(
@@ -144,8 +150,8 @@ def compute_procrustes_matrices(
         
         # Compute RHF
         rhf = compute_hartree_fock(molecule)
-        determinant = rhf["determinant"]
-        occupancies = rhf["occupancies"]
+        determinant = rhf["determinant"] # mo_coeff
+        occupancies = rhf["occupancies"] # mo_occ
         
         procrustes_overlap = localized_procrustes_overlap(
             target_determinant=determinant,
@@ -165,8 +171,6 @@ def compute_procrustes_matrices(
         "rotation_matrices": np.array(rotation_matrices),
         "procrustes_orbitals": np.array(procrustes_orbitals)
     }
-
-
 
 def compute_cc_with_procrustes(
     batched_atoms,
@@ -216,8 +220,3 @@ def compute_cc_with_procrustes(
         "t2": np.array(t2s),
         "ccsd_energy": np.array(energies),
     }
-
-def compute_procrustes(reference_orbital, reference_overlap, target_orbital, target_overlap):
-    reference_overlap_sqrt = sqrtm(reference_overlap)
-    target_overlap_sqrt = sqrtm(target_overlap)
-
