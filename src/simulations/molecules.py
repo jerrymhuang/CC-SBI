@@ -57,13 +57,13 @@ class MoleculeSimulator:
         | Callable
         | None = None,
         molecule_kwargs: dict | None = None,
+        include_molecule_kwargs: bool = False,
         include_geometries: bool = False,
         include_integrals: bool = False,
         include_hartree_fock: bool = False,
         include_cc: bool = False,
         include_coordinates: bool = False,
-        include_all: bool = True,
-        pick: list[str] | None = None,
+        include_all: bool = False,
     ) -> dict[str, np.ndarray]:
         """
         Simulate a closed-shell system and compute CCSD properties.
