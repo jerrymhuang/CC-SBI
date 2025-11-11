@@ -3,6 +3,13 @@ from collections.abc import Sequence
 from simulations.molecules import MoleculeSimulator
 
 
+def ethene_configs():
+    return {
+        "cc_bond_distance": np.random.uniform(0.7, 2.0),
+        "ch_bond_distance": np.random.uniform(0.7, 2.0),
+        "hch_angle": np.random.uniform(40.0, 110.0),
+        "twist_angle": np.random.uniform(0.0, 80.0),
+    }
 
 
 def ethene(
@@ -157,18 +164,9 @@ def ethene(
 
 if __name__ == "__main__":
 
-    molecule_config = {
-        "cc_bond_distance": np.random.uniform(0.7, 2.0),
-        "ch_bond_distance": np.random.uniform(0.7, 2.0),
-        "hch_angle": np.random.uniform(40.0, 110.0),
-        "twist_angle": np.random.uniform(0.0, 80.0),
-        "perturb": False,
-    }
-
     # Quick self-test: a chain of C2H4 with 3 molecules
     simulator = MoleculeSimulator(
         molecule_fun=ethene,
-        molecule_kwargs=molecule_config,
         basis="cc-pVDZ",
         coord_scale=0.1,
         cache_integrals=True,
@@ -176,11 +174,15 @@ if __name__ == "__main__":
 
     samples = simulator.sample(
         num_samples=2,
+        molecule_config=ethene_configs,
+        molecule_kwargs={ "perturb": False },
         include_kwargs={
             "include_geometries": True,
             "include_integrals": True,
-            "include_hartree_fock": True
+            "include_hartree_fock": True,
+            "include_molecule_kwargs": True,
         })
     print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in samples.items()})
     print(samples["atoms"])
     print(samples["positions"])
+    print(samples["cc_bond_distance"], samples["ch_bond_distance"], samples["hch_angle"], samples["twist_angle"])
