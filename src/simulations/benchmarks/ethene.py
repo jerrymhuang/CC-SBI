@@ -3,15 +3,17 @@ from collections.abc import Sequence
 from simulations.molecules import MoleculeSimulator
 
 
+
+
 def ethene(
-    cc_bond_distance: float = 1.339,
-    ch_bond_distance: float = 1.085,
-    hch_angle: float = 117.4,
-    twist_angle: float = 0.0,
-    cc_bond_noise: float = 0.05,
-    ch_bond_noise: float = 0.05,
-    angle_noise: float = 5.0,
-    twist_angle_noise: float = 5.0,
+    cc_bond_distance: float = 1.35,
+    ch_bond_distance: float = 1.35,
+    hch_angle: float = 90.0,
+    twist_angle: float = 45.0,
+    cc_bond_noise: float = 0.65,
+    ch_bond_noise: float = 0.65,
+    angle_noise: float = 30.0,
+    twist_noise: float = 45.0,
     perturb: bool = True,
     equal_bonds: bool = True,
     fix_c1_bonds: bool = False,
@@ -38,7 +40,7 @@ def ethene(
         Standard deviation of noise for C-H bonds in Å (default: 0.05).
     angle_noise : float
         Standard deviation of noise for H-C-H angle in degrees (default: 5.0).
-    twist_angle_noise : float
+    twist_noise : float
         Standard deviation of noise for twist angle in degrees (default: 5.0).
     perturb : bool
         If True, apply random perturbations to bond lengths, H-C-H angle, and twist angle (default: True).
@@ -66,23 +68,22 @@ def ethene(
     # Apply perturbations if requested
     if perturb:
         # Perturb C-C bond distance
-        cc_bond = cc_bond_distance + np.random.normal(0, cc_bond_noise)
+        cc_bond = cc_bond_distance + np.random.normal(-cc_bond_noise, cc_bond_noise)
         if fix_c1_bonds:
-
             ch_bonds = [ch_bond_distance, ch_bond_distance]  # Fixed for C1 (h11, h12)
             if equal_bonds:
-                ch_bond_c2 = ch_bond_distance + np.random.normal(0, ch_bond_noise)
+                ch_bond_c2 = ch_bond_distance + np.random.normal(-ch_bond_noise, ch_bond_noise)
                 ch_bonds.extend([ch_bond_c2, ch_bond_c2])  # Same for C2 (h21, h22)
             else:
-                ch_bonds.extend([ch_bond_distance + np.random.normal(0, ch_bond_noise) for _ in range(2)])  # Independent for C2
+                ch_bonds.extend([ch_bond_distance + np.random.normal(-ch_bond_noise, ch_bond_noise) for _ in range(2)])  # Independent for C2
         else:
             if equal_bonds:
-                ch_bond = ch_bond_distance + np.random.normal(0, ch_bond_noise)
+                ch_bond = ch_bond_distance + np.random.normal(-ch_bond_noise, ch_bond_noise)
                 ch_bonds = [ch_bond] * 4  # Same length for all four C-H bonds
             else:
-                ch_bonds = [ch_bond_distance + np.random.normal(0, ch_bond_noise) for _ in range(4)]  # Independent lengths
-        theta = np.deg2rad(hch_angle + np.random.normal(0, angle_noise))
-        phi = np.deg2rad(twist_angle + np.random.normal(0, twist_angle_noise))
+                ch_bonds = [ch_bond_distance + np.random.normal(-ch_bond_noise, ch_bond_noise) for _ in range(4)]  # Independent lengths
+        theta = np.deg2rad(hch_angle + np.random.uniform(-angle_noise, angle_noise))
+        phi = np.deg2rad(twist_angle + np.random.uniform(-angle_noise, twist_noise))
     else:
         cc_bond = cc_bond_distance
         ch_bonds = [ch_bond_distance] * 4
@@ -155,13 +156,31 @@ def ethene(
 
 
 if __name__ == "__main__":
+
+    molecule_config = {
+        "cc_bond_distance": np.random.uniform(0.7, 2.0),
+        "ch_bond_distance": np.random.uniform(0.7, 2.0),
+        "hch_angle": np.random.uniform(40.0, 110.0),
+        "twist_angle": np.random.uniform(0.0, 80.0),
+        "perturb": False,
+    }
+
     # Quick self-test: a chain of C2H4 with 3 molecules
     simulator = MoleculeSimulator(
         molecule_fun=ethene,
+        molecule_kwargs=molecule_config,
         basis="cc-pVDZ",
         coord_scale=0.1,
         cache_integrals=True,
     )
 
-    sim = simulator.simulate(molecule_kwargs={"perturb": True})
-    print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in sim.items()})
+    samples = simulator.sample(
+        num_samples=2,
+        include_kwargs={
+            "include_geometries": True,
+            "include_integrals": True,
+            "include_hartree_fock": True
+        })
+    print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in samples.items()})
+    print(samples["atoms"])
+    print(samples["positions"])
