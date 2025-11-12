@@ -180,7 +180,7 @@ if __name__ == "__main__":
             "include_geometries": True,
             "include_integrals": True,
             "include_hartree_fock": True,
-            "include_molecule_kwargs": True,
+            "include_configs": True,
         })
     print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in samples.items()})
     print(samples["atoms"])
