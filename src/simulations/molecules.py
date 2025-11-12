@@ -59,8 +59,8 @@ class MoleculeSimulator:
         | Callable
         | None = None,
         molecule_kwargs: dict | None = None,
-        molecule_config: Callable | None = None,
-        include_molecule_kwargs: bool = False,
+        molecule_config: dict | None = None,
+        include_configs: bool = False,
         include_geometries: bool = False,
         include_integrals: bool = False,
         include_hartree_fock: bool = False,
@@ -74,19 +74,21 @@ class MoleculeSimulator:
         if molecule_fun is None:
             molecule_fun = self.molecule_fun
             molecule_kwargs = molecule_kwargs or self.molecule_kwargs.copy()
+            molecule_config = molecule_config or self.molecule_config.copy()
+            kwargs = molecule_kwargs | molecule_config
         else:
             if not (isinstance(molecule_fun, (str, list, dict)) or callable(molecule_fun)):
                 raise TypeError(
                     "molecule_fun must be a string, list[(atom, coord)], dict{atom: coord}, or callable"
                 )
-            molecule_kwargs = molecule_kwargs or {}
+            kwargs = molecule_kwargs | molecule_config or {}
 
         sim_data = {}
 
         # Assemble molecule using updated utility function
         geometries = build_molecule_geometries(
             molecule_fun=molecule_fun,
-            molecule_kwargs=molecule_kwargs,
+            molecule_kwargs=kwargs,
         )
 
         # Build PySCF molecule
@@ -106,6 +108,7 @@ class MoleculeSimulator:
             include_cc = True
             include_coordinates = True
             include_geometries = True
+            include_configs = True
 
         # Initialize sim data
         if include_geometries:
@@ -127,8 +130,8 @@ class MoleculeSimulator:
             coordinates = compute_coordinates(**geometries, coordinate_scale=self.coord_scale)
             sim_data = sim_data | {"coordinates": coordinates}
 
-        if include_molecule_kwargs:
-            sim_data = sim_data | molecule_kwargs
+        if include_configs:
+            sim_data = sim_data | molecule_config
 
         return sim_data
 
@@ -147,12 +150,12 @@ class MoleculeSimulator:
             raise ValueError("samples must be a positive integer")
         all_data = []
         for _ in tqdm(range(num_samples), desc="Generating samples", disable=not show_progress):
+            # Allow customized priors for molecules
             config = molecule_config()
-            kwargs = (molecule_kwargs if molecule_kwargs is not None else self.molecule_kwargs) | config
-            print(type(config))
             sample = self.simulate(
-                self.molecule_fun,
-                kwargs,
+                molecule_fun=self.molecule_fun,
+                molecule_config=config,
+                molecule_kwargs=molecule_kwargs,
                 **include_kwargs
             )
             all_data.append(sample)
