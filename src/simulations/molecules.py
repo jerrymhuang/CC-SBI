@@ -137,8 +137,8 @@ class MoleculeSimulator:
 
     def sample(
         self,
-        num_samples: int,
-        molecule_config: Callable | None = None,
+        batch_size: int,
+        molecule_config: Callable | dict | None = None,
         molecule_kwargs: dict | None = None,
         include_kwargs: dict | None = None,
         show_progress: bool = True
@@ -146,10 +146,10 @@ class MoleculeSimulator:
         """
         Generate multiple CCSD samples for closed-shell molecules.
         """
-        if num_samples < 1:
+        if batch_size < 1:
             raise ValueError("samples must be a positive integer")
         all_data = []
-        for _ in tqdm(range(num_samples), desc="Generating samples", disable=not show_progress):
+        for _ in tqdm(range(batch_size), desc="Generating samples", disable=not show_progress):
             # Allow customized priors for molecules
             config = molecule_config()
             sample = self.simulate(
@@ -164,6 +164,8 @@ class MoleculeSimulator:
         if all_data:
             for key in all_data[0].keys():
                 combined_data[key] = np.stack([d[key] for d in all_data], axis=0)
+                if combined_data[key].ndim == 1:
+                    combined_data[key] = combined_data[key].reshape(-1, 1)
 
         return combined_data
 

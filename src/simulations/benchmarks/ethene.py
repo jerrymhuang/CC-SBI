@@ -173,16 +173,12 @@ if __name__ == "__main__":
     )
 
     samples = simulator.sample(
-        num_samples=2,
+        num_samples=1,
         molecule_config=ethene_configs,
         molecule_kwargs={ "perturb": False },
         include_kwargs={
-            "include_geometries": True,
-            "include_integrals": True,
             "include_hartree_fock": True,
             "include_configs": True,
         })
     print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in samples.items()})
-    print(samples["atoms"])
-    print(samples["positions"])
-    print(samples["cc_bond_distance"], samples["ch_bond_distance"], samples["hch_angle"], samples["twist_angle"])
+    sim_data = np.concatenate((samples['occupancies'], samples['determinant']), axis=-1)

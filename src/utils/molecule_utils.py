@@ -131,16 +131,21 @@ def compute_integrals(
     return integrals
 
 
-def compute_hartree_fock(molecule: gto.Mole):
+def compute_hartree_fock(molecule: gto.Mole, full_matrices: bool = False):
 
     rhf = scf.RHF(molecule).run()
     occupancies = rhf.mo_occ
     determinant = rhf.mo_coeff
     hf_energy = rhf.e_tot
 
+
+    num_orbitals = occupancies.shape[0]
+    tril_idx = np.tril_indices(num_orbitals)
+    determinant_flat = determinant[tril_idx]
+
     return {
         "occupancies": occupancies,
-        "determinant": determinant,
+        "determinant": determinant if full_matrices else determinant_flat,
         "hf_energy": hf_energy,
     }
 
