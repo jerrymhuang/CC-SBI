@@ -138,10 +138,7 @@ def compute_hartree_fock(molecule: gto.Mole, full_matrices: bool = False):
     determinant = rhf.mo_coeff
     hf_energy = rhf.e_tot
 
-
-    num_orbitals = occupancies.shape[0]
-    tril_idx = np.tril_indices(num_orbitals)
-    determinant_flat = determinant[tril_idx]
+    determinant_flat = determinant.flatten()
 
     return {
         "occupancies": occupancies,

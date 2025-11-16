@@ -60,6 +60,7 @@ class MoleculeSimulator:
         | None = None,
         molecule_kwargs: dict | None = None,
         molecule_config: dict | None = None,
+        full_matrices: bool = False,
         include_configs: bool = False,
         include_geometries: bool = False,
         include_integrals: bool = False,
@@ -119,7 +120,7 @@ class MoleculeSimulator:
             sim_data = sim_data | integrals
 
         if include_hartree_fock:
-            rhf = compute_hartree_fock(pyscf_molecule)
+            rhf = compute_hartree_fock(pyscf_molecule, full_matrices=full_matrices)
             sim_data = sim_data | rhf
 
         if include_cc:
@@ -141,6 +142,7 @@ class MoleculeSimulator:
         molecule_config: Callable | dict | None = None,
         molecule_kwargs: dict | None = None,
         include_kwargs: dict | None = None,
+        full_matrices: bool = False,
         show_progress: bool = True
     ) -> dict[str, np.ndarray]:
         """
@@ -156,6 +158,7 @@ class MoleculeSimulator:
                 molecule_fun=self.molecule_fun,
                 molecule_config=config,
                 molecule_kwargs=molecule_kwargs,
+                full_matrices=full_matrices,
                 **include_kwargs
             )
             all_data.append(sample)
