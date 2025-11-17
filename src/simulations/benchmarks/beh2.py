@@ -2,6 +2,12 @@ import numpy as np
 from collections.abc import Sequence
 from simulations.molecules import MoleculeSimulator
 
+def beh2_configs():
+    return {
+        "bond_length": np.random.uniform(0.7, 2.0),
+        "angle_deg": np.random.uniform(60.0, 180.0),
+    }
+
 
 def beh2(
     bond_length: float = 1.334,
@@ -64,13 +70,19 @@ def beh2(
 if __name__ == "__main__":
     # Quick self-test: a chain of BeH2 with 3 molecules
     simulator = MoleculeSimulator(
-        species=beh2,
-        bond_distance=2.8,
-        basis="sto3g",
-        seed=42,
+        molecule_fun=beh2,
+        basis="cc-pVTZ",
         coord_scale=0.1,
-        cache_integrals=True,
+        cache_integrals=False,
     )
 
-    sim = simulator.simulate(num_molecules=3)
-    print("BeH2 molecules:", {k: v.shape for k, v in sim.items()})
+    samples = simulator.sample(
+        batch_size=1,
+        molecule_config=beh2_configs,
+        molecule_kwargs={ "perturb": False },
+        include_kwargs={
+            "include_hartree_fock": True,
+            "include_configs": True,
+        })
+    print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in samples.items()})
+    sim_data = np.concatenate((samples['occupations'], samples['determinant']), axis=-1)

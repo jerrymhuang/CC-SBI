@@ -173,7 +173,7 @@ if __name__ == "__main__":
     )
 
     samples = simulator.sample(
-        num_samples=1,
+        batch_size=1,
         molecule_config=ethene_configs,
         molecule_kwargs={ "perturb": False },
         include_kwargs={
@@ -181,4 +181,4 @@ if __name__ == "__main__":
             "include_configs": True,
         })
     print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in samples.items()})
-    sim_data = np.concatenate((samples['occupancies'], samples['determinant']), axis=-1)
+    sim_data = np.concatenate((samples['occupations'], samples['determinant']), axis=-1)

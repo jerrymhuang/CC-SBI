@@ -3,6 +3,18 @@ from collections.abc import Sequence
 from simulations.molecules import MoleculeSimulator
 
 
+def ethanol_configs():
+    return {
+        "cc_bond_distance": 1.0,
+        "co_bond_distance": 1.0,
+        "oh_bond_distance": 1.0,
+        "ch_bond_distance": 1.0,
+        "hch_angle": 1.0,
+        "coh_angle": 1.0,
+        "twist_angle": 1.0
+    }
+
+
 def ethanol(
     cc_bond_distance: float = 1.54,  # C-C single bond
     co_bond_distance: float = 1.43,  # C-O bond
@@ -137,12 +149,21 @@ def ethanol(
 
 if __name__ == "__main__":
     # Quick self-test: a chain of C2H5OH with 3 molecules
-    ethanol_simulator = MoleculeSimulator(
-        species=ethanol,
-        basis="sto3g",
+    # Quick self-test: a chain of C2H4 with 3 molecules
+    simulator = MoleculeSimulator(
+        molecule_fun=ethanol,
+        basis="cc-pVDZ",
         coord_scale=0.1,
         cache_integrals=True,
     )
 
-    sim = ethanol_simulator.simulate(num_molecules=1)
-    print("Ethanol molecules:", {k: v.shape for k, v in sim.items()})
+    samples = simulator.sample(
+        batch_size=1,
+        molecule_config=ethanol_configs,
+        molecule_kwargs={ "perturb": False },
+        include_kwargs={
+            "include_hartree_fock": True,
+            "include_configs": True,
+        })
+    print("Ethene molecules:", {k: (v.shape if isinstance(v, np.ndarray) else v) for k, v in samples.items()})
+    sim_data = np.concatenate((samples['occupations'], samples['determinant']), axis=-1)
