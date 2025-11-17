@@ -134,14 +134,14 @@ def compute_integrals(
 def compute_hartree_fock(molecule: gto.Mole, full_matrices: bool = False):
 
     rhf = scf.RHF(molecule).run()
-    occupancies = rhf.mo_occ
+    occupations = rhf.mo_occ
     determinant = rhf.mo_coeff
     hf_energy = rhf.e_tot
 
     determinant_flat = determinant.flatten()
 
     return {
-        "occupancies": occupancies,
+        "occupations": occupations,
         "determinant": determinant if full_matrices else determinant_flat,
         "hf_energy": hf_energy,
     }
