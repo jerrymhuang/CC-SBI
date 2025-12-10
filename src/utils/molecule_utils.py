@@ -1,9 +1,9 @@
 import numpy as np
-from pyscf import gto, scf, cc, ao2mo
+from pyscf import gto, scf, cc, dft, mp
 from collections.abc import Iterable, Callable
 
 
-def build_molecule_geometries(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
+def build_geometries(molecule_fun, molecule_kwargs: dict | None = None) -> dict[str, np.ndarray]:
     """
     Generate a single molecule or atom set from molecule_fun specification.
     """
