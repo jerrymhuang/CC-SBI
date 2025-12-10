@@ -1,7 +1,8 @@
 import numpy as np
+from utils.molecule_utils import build_pyscf_molecule
 
 
-def water_cluster(num_molecules=6, base_radius=3.0, seed=None):
+def water_cluster(num_molecules=2, base_radius=3.0, seed=None):
     rng = np.random.default_rng(seed)
     atoms = []
 
@@ -36,8 +37,16 @@ def water_cluster(num_molecules=6, base_radius=3.0, seed=None):
         h2 = rot @ np.array([h2x, h2y])
 
         # Gather info (as strings)
-        atoms.append(f"O  {ox}  {oy}  {oz}")
-        atoms.append(f"H  {ox + h1[0]}  {oy + h1[1]}  {oz}")
-        atoms.append(f"H  {ox + h2[0]}  {oy + h2[1]}  {oz}")
+        atoms.append(("O", [ox, oy, oz]))
+        atoms.append(("H", [ox + h1[0], oy + h1[1], oz]))
+        atoms.append(("H", [ox + h2[0], oy + h2[1], oz]))
 
-    return "\n".join(atoms)
+    return atoms
+
+
+if __name__ == "__main__":
+    cluster = water_cluster()
+    print(cluster)
+
+    molecules = build_pyscf_molecule(pyscf_atoms=cluster)
+    print(molecules.atom)
